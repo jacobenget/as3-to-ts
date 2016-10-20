@@ -2,12 +2,13 @@
   "name": "as3-to-ts",
   "version": "0.3.2",
   "description": "Tool to help porting ActionScript 3.0 code to TypeScript.",
-  "main": "index.js",
+  "main": "./demo/index.tsx",
   "bin": {
     "as3-to-ts": "./bin/as3-to-typescript"
   },
   "scripts": {
     "install": "typings install && npm run compile",
+    "start": "webpack-dev-server",
     "pretest": "npm run -s compile",
     "test": "npm run -s generate && npm run -s compare",
     "generate": "node -r source-map-support/register test/runner generate",
@@ -22,7 +23,7 @@
     "typescript",
     "compiler"
   ],
-  "publishConfig":{
+  "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
   "repository": {
@@ -33,24 +34,38 @@
     "url": "https://github.com/GoodgameStudios/as3-to-ts/issues"
   },
   "author": "François de Campredon <francois.de.campredon@gmail.com>",
-  "contributors": [{
-    "name": "Endel Dreyer"
-  }, {
-    "name": "Simon Buchan"
-  }],
+  "contributors": [
+    {
+      "name": "Endel Dreyer"
+    },
+    {
+      "name": "Simon Buchan"
+    }
+  ],
   "license": "Apache-2.0",
   "dependencies": {
     "fs-extra": "^0.24.0",
     "minimist": "^1.2.0",
     "object-assign": "^4.0.1",
+    "react": "^15.3.2",
+    "react-codemirror": "^0.2.6",
+    "react-dom": "^15.3.2",
     "readline-sync": "^1.4.4",
     "sax": "~0.6.0"
   },
   "devDependencies": {
+    "@types/react": "^0.14.41",
+    "@types/react-codemirror": "^0.2.4",
+    "@types/react-dom": "^0.14.18",
+    "awesome-typescript-loader": "^2.2.4",
+    "css-loader": "^0.25.0",
     "diff": "^2.2.1",
     "source-map-support": "^0.3.2",
+    "style-loader": "^0.13.1",
     "tslint": "^2.5.1",
-    "typescript": "^1.5.3",
-    "typings": "^1.3.2"
+    "typescript": "^2.0.3",
+    "typings": "^1.3.2",
+    "webpack": "^2.1.0-beta.25",
+    "webpack-dev-server": "^2.1.0-beta.9"
   }
 }
