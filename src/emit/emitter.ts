@@ -4,8 +4,6 @@ import Node, {createNode} from '../syntax/node';
 import assign = require('object-assign');
 import { Bridge } from "../bridge"
 
-const util = require('util');
-
 const GLOBAL_NAMES = [
     'undefined', 'NaN', 'Infinity',
     'Array', 'Boolean', 'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape',
