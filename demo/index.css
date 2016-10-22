@@ -1,0 +1,13 @@
+html, body { height: 100%; }
+
+.ReactCodeMirror.left {
+  width: 50%;
+  height: auto;
+  display: inline-block;
+}
+
+.ReactCodeMirror.right {
+  width: 50%;
+  height: auto;
+  display: inline-block;
+}
