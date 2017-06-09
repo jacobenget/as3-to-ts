@@ -472,7 +472,7 @@ function scanSingleLineComment(scanner: AS3Scanner): Token {
         char = scanner.nextChar();
         buffer += char;
     }
-    while (!isNewLineChar(char));
+    while ((!isNewLineChar(char)) && (scanner.index < scanner.content.length));
 
     return scanner.createToken(buffer, {skip: false});
 }
