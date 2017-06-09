@@ -488,7 +488,7 @@ function parseDot(parser:AS3Parser, node:Node):Node {
     } else if (tokIs(parser, Operators.TIMES)) {
         let result:Node = createNode(NodeKind.E4X_STAR, {start: parser.tok.index});
         result.children.push(node);
-        result.end = node.end;
+        result.end = consume(parser, Operators.TIMES).end;
         return result;
     }
     let result:Node = createNode(NodeKind.DOT, {start: node.start});
