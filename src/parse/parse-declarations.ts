@@ -9,7 +9,9 @@ import {parseQualifiedName, parseBlock, parseParameterList, parseNameTypeInit} f
 import {ASDOC_COMMENT, MULTIPLE_LINES_COMMENT} from './parser';
 import {VERBOSE} from '../config';
 import {parseExpression} from './parse-expressions';
+import {skipAllDocumentation} from './parse-literals';
 import {parseOptionalType} from './parse-types';
+import {parseStatement} from './parse-statements';
 
 /**
  * tok is empty, since nextToken has not been called before
@@ -55,6 +57,21 @@ function parsePackageContent(parser:AS3Parser):Node {
     let modifiers:Token[] = [];
     let meta:Node[] = [];
 
+    let possibleModifiers:String[] = [
+        'public',
+        'private',
+        'protected',
+        'internal',
+        'static',
+        'final',
+        'enumerable',
+        'explicit',
+        'override',
+        'dynamic',
+        'intrinsic',
+        'namespace'
+    ];
+
     while (!tokIs(parser, Operators.RIGHT_CURLY_BRACKET) && !tokIs(parser, Keywords.EOF)) {
         if (tokIs(parser, Keywords.IMPORT)) {
             result.children.push(parseImport(parser));
@@ -88,9 +105,12 @@ function parsePackageContent(parser:AS3Parser):Node {
                 text: parser.tok.text
             });
             nextToken(parser);
-        } else {
+        } else if (possibleModifiers.indexOf(parser.tok.text) > -1) {
             modifiers.push(parser.tok);
             nextTokenIgnoringDocumentation(parser);
+        } else {
+            modifiers = []; // currently pending modifiers are not processed with the statement, but instead just maintained as-is, and this is accomplished by just forgetting about the modifiers
+            result.children.push(parseStatement(parser));
         }
     }
     if (result.lastChild) {
@@ -166,6 +186,7 @@ function parseIncludeExpression(parser:AS3Parser):Node {
         result.start = tok.index;
     }
     result.children.push(parseExpression(parser));
+    skip(parser, Operators.SEMI_COLUMN);
     result.end = result.children.reduce((index:number, child:Node) => {
         return Math.max(index, child ? child.end : 0);
     }, 0);
@@ -235,6 +256,7 @@ function parseClass(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
 
 function parseImplementsList(parser:AS3Parser):Node {
     consume(parser, Keywords.IMPLEMENTS);
+    skipAllDocumentation(parser);
     let result:Node = createNode(NodeKind.IMPLEMENTS_LIST, {start: parser.tok.index});
     let index = parser.tok.index;
     let name = parseQualifiedName(parser, true);
