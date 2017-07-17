@@ -121,7 +121,7 @@ export function run(): void {
             }
         }
 
-        let content = fs.readFileSync(inputFile, 'UTF-8');
+        let content = fs.readFileSync(inputFile, 'UTF-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/ {4}/g, '\t');
         let ast = parse(path.basename(file), content);
         let contents = emit(ast, content, emitterOptions);
 
@@ -131,7 +131,7 @@ export function run(): void {
             }
         })
 
-        fs.outputFileSync(outputFile, contents.replace(/\r\n/g, "\n"));
+        fs.outputFileSync(outputFile, contents);
         fs.utimesSync(outputFile, nextLockTimestamp, nextLockTimestamp);
         number ++;
     });
