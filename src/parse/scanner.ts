@@ -310,6 +310,7 @@ function scanRegExp(scanner: AS3Scanner): Token {
 
         if (flags.length) {
             token.text += flags;
+            token.end += flags.length;
             scanner.index += flags.length;
         }
 
