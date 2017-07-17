@@ -475,12 +475,15 @@ function emitImport(emitter: Emitter, node: Node): void {
         let skipTo = node.end;
 
         if (definitions && definitions.length > 0) {
+            emitter.catchup(node.start);    // to ensure that left padding on the '*' import is correctly recognized and duplicated across all generated imports below
+            let leftPadding = /[ \t]*$/.exec(emitter.output)[0];    // all trailing whitespace
+
             definitions.forEach(definition => {
                 let importNode = createNode(node.kind, node);
                 importNode.text = `${ ns }.${ definition }`;
                 importNode.parent = node.parent;
                 emitImport(emitter, importNode);
-                emitter.insert(";\n");
+                emitter.insert(";\n" + leftPadding);
             })
 
             skipTo = node.end + Keywords.IMPORT.length + 2;
