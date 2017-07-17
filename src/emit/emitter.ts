@@ -761,7 +761,8 @@ function emitForEach(emitter: Emitter, node: Node): void {
         if(typeNode) {
             emitter.catchup(node.start);
             let typeRemapped = emitter.getTypeRemap(typeNode.text) || typeNode.text;
-            emitter.insert(`let ${ nameNode.text }:${ typeRemapped };\n`);
+            let leftPadding = /[ \t]*$/.exec(emitter.output)[0];    // all trailing whitespace
+            emitter.insert(`let ${ nameNode.text }:${ typeRemapped };\n${leftPadding}`);
         }
         else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
