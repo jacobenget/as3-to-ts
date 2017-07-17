@@ -8,6 +8,7 @@ import {MULTIPLE_LINES_COMMENT} from './parser';
 import {parseStatement} from './parse-statements';
 import {parseExpression} from './parse-expressions';
 import {parseOptionalType} from './parse-types';
+import {skipAllDocumentation} from './parse-literals';
 
 
 export function parseQualifiedName(parser:AS3Parser, skipPackage:boolean):string {
@@ -69,6 +70,7 @@ export function parseParameterList(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.PARAMETER_LIST, {start: tok.index});
     while (!tokIs(parser, Operators.RIGHT_PARENTHESIS)) {
         result.children.push(parseParameter(parser));
+        skipAllDocumentation(parser);
         if (tokIs(parser, Operators.COMMA)) {
             nextToken(parser, true);
         } else {
