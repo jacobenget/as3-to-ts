@@ -344,7 +344,7 @@ export default class Emitter {
 
         // warning if this is a as3-path, not a plain name (like shared.Node should error)
         if(WARNINGS>=1 && identifier.split(".").length>1){
-            console.log(`emitter.ts: *** MAJOR WARNING *** ensureImportIdentifier() => : invalid object name identifier: ${ identifier })`)
+            console.log(`emitter.ts: *** MAJOR WARNING *** ensureImportIdentifier() => : invalid object name identifier: ${ identifier }`)
         }
 
         let isGloballyAvailable = checkGlobals
