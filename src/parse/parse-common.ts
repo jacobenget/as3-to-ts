@@ -49,8 +49,10 @@ export function parseBlock(parser:AS3Parser, result?:Node):Node {
             console.log("parseBlock() - iter");
         }
         if (startsWith(parser.tok.text, MULTIPLE_LINES_COMMENT)) {
-            parser.currentFunctionNode.children.push(
-                createNode(NodeKind.MULTI_LINE_COMMENT, {tok: parser.tok}));
+            if (parser.currentFunctionNode != null) {   // 'currentFunctionNode' will be 'null' if not parsing a standard function
+                parser.currentFunctionNode.children.push(
+                    createNode(NodeKind.MULTI_LINE_COMMENT, {tok: parser.tok}));
+            }
             nextToken(parser);
         } else {
             result.children.push(parseStatement(parser));
