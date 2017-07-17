@@ -1204,9 +1204,61 @@ function isCast(emitter: Emitter, node: Node):boolean {
 
 
 function emitCatch(emitter: Emitter, node: Node): void {
-    emitter.declareInScope({ name: node.children[0].text })
+    let exceptionName = node.children[0].text;
+
+    emitter.declareInScope({name: exceptionName})
     emitter.catchup(node.start);
-    visitNodes(emitter, node.children);
+
+    // accept the exception's name
+    emitter.catchup(node.children[0].end);
+    let leftPaddingAtCatch = /\n([ \t]*)[^\n]*$/.exec(emitter.output)[1];    // all whitespace indenting the line that contains 'catch'
+
+    let block: Node = null;
+    let exceptionType: Node = null;
+
+    if (node.children[1].kind == NodeKind.TYPE) {
+        exceptionType = node.children[1];
+        block = node.children[2];
+    } else {
+        block = node.children[1];
+    }
+
+    console.assert((!exceptionType) || exceptionType.kind == NodeKind.TYPE);
+    console.assert(block.kind == NodeKind.BLOCK);
+
+    if (exceptionType !== null) {
+        // skip the variable type, because specifying the type of the exception caught here isn't supported in TypeScript
+        emitter.skipTo(exceptionType.end);
+    }
+
+    let outputLengthBeforeBlockEmit = emitter.output.length;
+    visitNode(emitter, block);
+
+    // to duplicate the behavior in ActionScript of being able to have the 'catch' body gaurded by a type check on the exception type,
+    // surround the 'catch' body with an 'if' statement that checks the type of the exception with a call to 'instanceof'
+    if (exceptionType !== null) {
+        let exceptionTypeName = (emitter.getTypeRemap(exceptionType.text) || exceptionType.text);
+        if (exceptionTypeName === 'any') {
+            // don't build an 'if' statement to check for an instance of this type, because all values are of type 'any', so the 'if' will never be false
+        } else {
+            // Surround the 'catch' body (after giving it an extra level of indentation) with an 'if' that appropriately checks the type of the exception being thrown,
+            // and end the 'if' with an 'else' that re-throws the exception in the case where the type didn't match
+            emitter.catchup(block.end);
+            let blockBeginIndex = emitter.output.indexOf('{', outputLengthBeforeBlockEmit);
+            let emittedBlock = emitter.output.slice(blockBeginIndex + 1);
+            emittedBlock = emittedBlock.replace(/\n/g, '\n\t');  // indent the full block an extra level (here we're assuming that 'tabs' are used instead of 'spaces' for indenting)
+            let leftPaddingForIfStatement = leftPaddingAtCatch + '\t';
+
+            emitter.output = emitter.output.slice(0, blockBeginIndex + 1) + `\n${leftPaddingForIfStatement}if (${exceptionName} instanceof `;
+            // perform a little hackery to properly emit the exception's type
+            let indexBeforeSkip = emitter.index;
+            emitter.skipTo(exceptionType.start);
+            visitNode(emitter, exceptionType);
+            emitter.skipTo(indexBeforeSkip);
+
+            emitter.output += ') {' + emittedBlock + `\n${leftPaddingForIfStatement}else { throw ${exceptionName}; }\n${leftPaddingAtCatch}}`;
+        }
+    }
 }
 
 
