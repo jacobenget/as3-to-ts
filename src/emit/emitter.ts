@@ -4,6 +4,7 @@ import Node, {createNode} from '../syntax/node';
 import assign = require('object-assign');
 import { CustomVisitor } from "../custom-visitors"
 import {VERBOSE, WARNINGS} from '../config';
+import * as Operators from '../syntax/operators';
 
 const util = require('util');
 
@@ -400,12 +401,49 @@ function emitPackage(emitter: Emitter, node: Node): void {
         visitNodes(emitter, node.children);
 
     } else {
+
         emitter.catchup(node.start);
-        emitter.skip(Keywords.PACKAGE.length + node.children[0].text.length + 4);
+
+        // skip to just past the opening left curly bracket
+        emitter.skipTo(emitter.source.indexOf(Operators.LEFT_CURLY_BRACKET, node.start) + 1);
+
+        let indexBeforePackageContents = emitter.output.length;
 
         visitNodes(emitter, node.children);
-        emitter.catchup(node.end - 1);
-        emitter.skip(1);
+
+        let indexAfterPackageContents = emitter.output.length;
+
+        // because we're removing the 'package' declaration and, therefore, a logical scoping/indentation level,
+        // physically remove any addition indentation this package scope introduced
+
+        // pull out all lines added by visiting the package contents
+        let linesInPackageContents = emitter.output.substring(indexBeforePackageContents).split('\n');
+
+        // ignore the first line, which is the line that contains the package's left curly bracket, and should just contain whitespace
+        let lineContainingLeftCurlyBracket = linesInPackageContents[0];
+        linesInPackageContents.shift();
+
+        let linesBeginningWithExportModifer = linesInPackageContents.filter(line => /^\s*export/.test(line));
+
+        if (!/^\s*$/.test(lineContainingLeftCurlyBracket)) {
+            if(WARNINGS >= 1) {
+                console.log(`emitter.ts: *** MINOR WARNING *** emitPackage() => : package open curly bracket isn't only followed by whitespace, which is unexpected. Result: package indentation not corrected`);
+            }
+        } else if (linesBeginningWithExportModifer.length == 0) {
+            if(WARNINGS >= 1) {
+                console.log(`emitter.ts: *** MINOR WARNING *** emitPackage() => : no lines in the package definition begin with 'export', which is unexpected. Result: package indentation not corrected`)
+            }
+        } else {
+            // and remove the leading whitespace from all lines
+            let leftPaddingToRemove = linesBeginningWithExportModifer[0].match(/^(\s*)export/)[1];
+            let regexMatchingLeftPadding = RegExp('^' + leftPaddingToRemove);
+            let linesWithLeftPaddingRemoved = linesInPackageContents.map(line => line.replace(regexMatchingLeftPadding, ""));
+            let adjustedLinesInPackageContents = linesWithLeftPaddingRemoved.join('\n');
+            emitter.output = emitter.output.substring(0, indexBeforePackageContents) + adjustedLinesInPackageContents;
+        }
+
+        emitter.catchup(node.end - 1);  // catchup to *just* before the closing bracket of the package declaration
+        emitter.skip(1);    // skip the closing bracket
     }
 }
 
