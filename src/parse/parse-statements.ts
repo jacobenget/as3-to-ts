@@ -156,7 +156,7 @@ function parseSwitch(parser:AS3Parser):Node {
     let tok = consume(parser, Keywords.SWITCH);
     let result:Node = createNode(NodeKind.SWITCH, {start: tok.index, end: tok.end}, parseCondition(parser));
     if (tokIs(parser, Operators.LEFT_CURLY_BRACKET)) {
-        nextToken(parser);
+        nextToken(parser, true);
         result.children.push(parseSwitchCases(parser));
         result.end = consume(parser, Operators.RIGHT_CURLY_BRACKET).end;
     }
