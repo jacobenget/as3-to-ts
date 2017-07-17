@@ -772,14 +772,14 @@ function emitForEach(emitter: Emitter, node: Node): void {
                 }
             }
         }
-        emitter.catchup(node.start + Keywords.FOR.length + 1);
-        emitter.skip(4); // "each"
+        emitter.catchup(node.start + Keywords.FOR.length);
+        emitter.consume("each", varNode.start);
         emitter.catchup(varNode.start);
         emitter.insert(`${ nameNode.text }`);
         emitter.skipTo(varNode.end);
     } else {
-        emitter.catchup(node.start + Keywords.FOR.length + 1);
-        emitter.skip(4); // "each"
+        emitter.catchup(node.start + Keywords.FOR.length);
+        emitter.consume("each", varNode.start);
         visitNode(emitter, varNode);
     }
 
