@@ -86,10 +86,9 @@ export function run(): void {
     // get class definitions by namespace
     let definitionsByNamespace: {[ns: string]: string[]} = {};
     files.forEach(file => {
-        let segments = file.match(/([a-zA-Z]+)/g);
-        segments.pop();
+        let segments = file.split(path.sep);
 
-        let identifier = segments.pop();
+        let identifier = path.parse(segments.pop()).name
         let ns = segments.join(".");
 
         if (!definitionsByNamespace[ ns ]) {
