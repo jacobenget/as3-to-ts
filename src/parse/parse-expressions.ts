@@ -469,6 +469,7 @@ function parseFunctionCall(parser:AS3Parser, node:Node):Node {
 function parseArgumentList(parser:AS3Parser):Node {
     let tok = consume(parser, Operators.LEFT_PARENTHESIS);
     let result:Node = createNode(NodeKind.ARGUMENTS, {start: tok.index});
+    skipAllDocumentation(parser);
     while (!tokIs(parser, Operators.RIGHT_PARENTHESIS)) {
         result.children.push(parseExpression(parser));
         skipAllDocumentation(parser);
