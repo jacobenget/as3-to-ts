@@ -4,7 +4,7 @@ import Token from './token';
 import * as Keywords from '../syntax/keywords';
 import * as Operators from '../syntax/operators';
 import {startsWith} from '../string';
-import AS3Parser, {nextToken, nextTokenIgnoringDocumentation, consume, skip, tokIs} from './parser';
+import AS3Parser, {nextToken, nextTokenIgnoringDocumentation, consume, skip, tokIs, tryParse} from './parser';
 import {parseQualifiedName, parseBlock, parseParameterList, parseNameTypeInit} from './parse-common';
 import {ASDOC_COMMENT, MULTIPLE_LINES_COMMENT} from './parser';
 import {VERBOSE} from '../config';
@@ -490,22 +490,24 @@ function doParseSignature(parser:AS3Parser) {
     let isSet = tokIs(parser, Keywords.SET);
 
     if (isGet || isSet) {
-        let currentToken = parser.tok;
-        let checkpoint = parser.scn.getCheckPoint();
+        let getOrSetNode = tryParse(parser, () => {
 
-        nextToken(parser); // set or get
-        let valid: boolean = (parser.tok.text !== "(");
+            nextToken(parser); // set or get
+            let argumentSectionIsNext: boolean = (parser.tok.text === "(");
 
-        if (valid) {
-            type = createNode((isGet) ? NodeKind.GET : NodeKind.SET, {
-                start: tok.index,
-                end: parser.tok.end,
-                text: parser.tok.text
-            });
+            if (argumentSectionIsNext) {
+                throw new Error("This can't be a 'get' or 'set' function");
+            } else {
+                return createNode((isGet) ? NodeKind.GET : NodeKind.SET, {
+                    start: tok.index,
+                    end: parser.tok.end,
+                    text: parser.tok.text
+                });
+            }
+        });
 
-        } else {
-            parser.scn.rewind(checkpoint);
-            parser.tok = currentToken;
+        if (getOrSetNode !== null) {
+            type = getOrSetNode;
         }
 
     }
