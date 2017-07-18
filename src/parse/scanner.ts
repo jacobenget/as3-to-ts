@@ -610,9 +610,11 @@ function verifyXML(string: string): boolean {
  * Something started with a lower sign <
  */
 function scanXMLOrOperator(scanner: AS3Scanner, startingCharacterc: string): Token {
+    let checkPoint = scanner.getCheckPoint();
     let xmlToken = scanXML(scanner);
     if (xmlToken !== null && verifyXML(xmlToken.text)) {
         return xmlToken;
     }
+    scanner.rewind(checkPoint);
     return scanCharacterSequence(scanner, startingCharacterc, ['<<<=', '<<<', '<<=', '<<', '<=']);
 }
