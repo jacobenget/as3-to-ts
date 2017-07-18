@@ -483,14 +483,14 @@ function scanSingleLineComment(scanner: AS3Scanner): Token {
  * Something started with a quote or number quote consume characters until
  * the quote/double quote shows up again and is not escaped
  */
-function scanUntilDelimiter(scanner: AS3Scanner, start: string, delimiter: string = start): Token {
+function scanUntilDelimiter(scanner: AS3Scanner, start: string, delimiter: string = start, allowNewLines: boolean = false): Token {
     let buffer = start;
     let peekPos = 1;
     let numberOfBackslashes = 0;
 
     while (peekPos < scanner.content.length) {
         let currentCharacter: string = scanner.peekChar(peekPos++);
-        if (isNewLineChar(currentCharacter) || (scanner.index + peekPos >= scanner.content.length)) {
+        if ((!allowNewLines && isNewLineChar(currentCharacter)) || (scanner.index + peekPos >= scanner.content.length)) {
             return null;
         }
         buffer += currentCharacter;
@@ -556,7 +556,7 @@ function scanXML(scanner: AS3Scanner): Token {
     while (true) {
         let currentToken: Token = null;
         do {
-            currentToken = scanUntilDelimiter(scanner, '<', '>');
+            currentToken = scanUntilDelimiter(scanner, '<', '>', true); // allow newlines inside XML tags
             if (currentToken === null) {
                 scanner.index = currentIndex;
                 return null;
