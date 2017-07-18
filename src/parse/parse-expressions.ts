@@ -44,7 +44,10 @@ export function parsePrimaryExpression(parser:AS3Parser):Node {
     } else if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
         return parseEncapsulatedExpression(parser);
     } else if (parser.tok.text === VECTOR) {
-        return parseVector(parser);
+        let res = tryParse(parser, () => parseVector(parser));
+        if (res) {
+            return res;
+        }
     } else if (tokIs(parser, Operators.INFERIOR)) {
         let res = tryParse(parser, () => parseShortVector(parser));
         if (res) {
