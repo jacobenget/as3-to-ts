@@ -7,6 +7,7 @@ import {parseParameterList, parseBlock} from './parse-common';
 import {parseOptionalType, parseVector} from './parse-types';
 import {parseArrayLiteral, parseObjectLiteral, parseShortVector} from './parse-literals';
 import {VERBOSE} from '../config';
+import {skipAllDocumentation} from './parse-literals';
 
 export function parseExpressionList(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.EXPR_LIST, {start: parser.tok.index}, parseAssignmentExpression(parser));
@@ -470,7 +471,12 @@ function parseArgumentList(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.ARGUMENTS, {start: tok.index});
     while (!tokIs(parser, Operators.RIGHT_PARENTHESIS)) {
         result.children.push(parseExpression(parser));
-        skip(parser, Operators.COMMA);
+        skipAllDocumentation(parser);
+        if (tokIs(parser, Operators.COMMA)) {
+            nextToken(parser, true);
+        } else {
+            break;
+        }
     }
     tok = consume(parser, Operators.RIGHT_PARENTHESIS);
     result.end = tok.end;
