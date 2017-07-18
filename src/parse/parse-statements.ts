@@ -7,7 +7,8 @@ import AS3Parser, {nextToken, nextTokenAllowNewLine, tryParse, consume, skip, to
 import {parseExpressionList, parseExpression, parsePrimaryExpression} from './parse-expressions';
 import {parseVarList, parseConstList} from './parse-declarations';
 import {parseBlock, parseNameTypeInit} from './parse-common';
-import {NEW_LINE} from './parser';
+import {NEW_LINE, MULTIPLE_LINES_COMMENT} from './parser';
+import {startsWith} from '../string';
 
 
 export function parseStatement(parser:AS3Parser):Node {
@@ -203,7 +204,11 @@ function parseSwitchCases(parser:AS3Parser):Node {
 function parseSwitchBlock(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.SWITCH_BLOCK, {start: parser.tok.index, end: parser.tok.end});
     while (!tokIs(parser, Keywords.CASE) && !tokIs(parser, Keywords.DEFAULT) && !tokIs(parser, Operators.RIGHT_CURLY_BRACKET)) {
-        result.children.push(parseStatement(parser));
+        if (startsWith(parser.tok.text, MULTIPLE_LINES_COMMENT)) {
+            nextToken(parser);
+        } else {
+            result.children.push(parseStatement(parser));
+        }
     }
     result.end = result.children.reduce((index:number, child:Node) => {
         return Math.max(index, child ? child.end : 0);
