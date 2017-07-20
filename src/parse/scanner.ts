@@ -435,7 +435,7 @@ function scanMultiLineComment(scanner: AS3Scanner): Token {
     }
     while (currentCharacter && (previousCharacter !== '*' || currentCharacter !== '/'));
 
-    return scanner.createToken(buffer, {skip: false});
+    return scanner.createToken(buffer, {index: scanner.index + 1 - buffer.length, skip: false});
 }
 
 
