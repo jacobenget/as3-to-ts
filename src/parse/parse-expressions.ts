@@ -493,6 +493,7 @@ function parseDot(parser:AS3Parser, node:Node):Node {
         let result:Node = createNode(NodeKind.E4X_FILTER, {start: parser.tok.index});
         result.children.push(node);
         result.children.push(parseExpression(parser));
+        skipAllDocumentation(parser);
         result.end = consume(parser, Operators.RIGHT_PARENTHESIS).end;
         return result;
     } else if (tokIs(parser, Operators.TIMES)) {
