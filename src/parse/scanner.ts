@@ -569,6 +569,22 @@ function scanXML(scanner: AS3Scanner): Token {
                     scanner.nextChar();
                 }
                 currentToken = null;
+            } else if (startsWith(currentToken.text, '<!')) {
+                // comment or CDATA block, continue to believe this is well-formed for now
+            } else if (startsWith(currentToken.text, '</')) {
+                // end tag, continue to believe this is well-formed for now
+            } else {
+                // open tag, or empty tag
+
+                // parse this as an empty tag to make sure it actually is a valid XML tag
+                let currentTokenAsEmptyXmlTag = currentToken.text;
+                if (!endsWith(currentToken.text, '/>')) {
+                    currentTokenAsEmptyXmlTag = currentToken.text.substring(0, currentToken.text.length - 1) + '/>';
+                }
+                if (!verifyXML(currentTokenAsEmptyXmlTag)) {
+                    scanner.index = currentIndex;
+                    return null;
+                }
             }
         }
         while (currentToken === null);
@@ -598,7 +614,14 @@ function scanXML(scanner: AS3Scanner): Token {
 function verifyXML(string: string): boolean {
     let parser = sax.parser(true, {});
     try {
-        parser.write(string).close();
+        // NOTE: this attempt at turning the XML string into a valid XML string by finding and replacing instances of '{some code}' is only a partial solution that works 'well enough' currently,
+        // constructing a use-case where this fails (e.g. code inside the '{}'s that contains a '{') isn't difficult.
+        let stringWithTemplateStringsRemoved =
+            string
+                .replace(/<{[^{}]*}/g, '<someValue')    // replace XML tags that are dynamically calculated with some possible valid value
+                .replace(/{[^{}]*}/g, '"someValue"');    // replace other XML data that is dynamically calculated with some possible valid value
+
+        parser.write(stringWithTemplateStringsRemoved).close();
         return true;
     } catch (e) {
         return false;
@@ -615,13 +638,7 @@ function scanXMLOrOperator(scanner: AS3Scanner, startingCharacterc: string): Tok
 
     if (xmlToken !== null) {
         let xmlContent = xmlToken.text;
-        // NOTE: this attempt at turning the XML content into a valid XML string by finding and replacing instances of '{some code}' is only a partial solution that works 'well enough' currently,
-        // constructing a use-case where this fails (e.g. code inside the '{}'s that contains a '{') isn't difficult.
-        let xmlContentWithTemplateStringsRemoved =
-            xmlContent
-                .replace(/<{[^{}]*}/g, '<someValue')    // replace XML tags that are dynamically calculated with some possible valid value
-                .replace(/{[^{}]*}/g, '"someValue"');    // replace other XML data that is dynamically calculated with some possible valid value
-        if (verifyXML(xmlContentWithTemplateStringsRemoved)) {
+        if (verifyXML(xmlContent)) {
             return xmlToken;
         }
     }
