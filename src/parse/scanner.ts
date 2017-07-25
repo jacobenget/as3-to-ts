@@ -370,7 +370,7 @@ function scanDecimal(scanner: AS3Scanner, currentCharacter: string): Token {
             currentChar = scanner.peekChar(peekPos++);
         }
 
-        if (currentChar === 'E') {
+        if (currentChar === 'E' || currentChar === 'e') {
             buffer += currentChar;
             currentChar = scanner.peekChar(peekPos++);
             while (/\d/.test(currentChar)) {
