@@ -421,6 +421,7 @@ function parseFunction(parser:AS3Parser, meta:Node[], modifiers:Token[]):Node {
     }
 
     let {type, name, params, returnType} = doParseSignature(parser);
+    skipAllDocumentation(parser);
     let result:Node = createNode(findFunctionTypeFromTypeNode(type), {start: type.start, end: -1, text: type.text});
 
     if(VERBOSE >= 2) {

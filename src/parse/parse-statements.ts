@@ -9,6 +9,7 @@ import {parseVarList, parseConstList} from './parse-declarations';
 import {parseBlock, parseNameTypeInit} from './parse-common';
 import {NEW_LINE, MULTIPLE_LINES_COMMENT} from './parser';
 import {startsWith} from '../string';
+import {skipAllDocumentation} from './parse-literals';
 
 
 export function parseStatement(parser:AS3Parser):Node {
@@ -375,6 +376,7 @@ function parseEmptyStatement(parser:AS3Parser):Node {
 
 function parseCondition(parser:AS3Parser):Node {
     let tok = consume(parser, Operators.LEFT_PARENTHESIS);
+    skipAllDocumentation(parser);
     let result:Node = createNode(NodeKind.CONDITION, {start: tok.index}, parseExpression(parser));
     tok = consume(parser, Operators.RIGHT_PARENTHESIS);
     result.end = tok.end;

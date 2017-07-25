@@ -135,6 +135,7 @@ function parseEncapsulatedExpression(parser:AS3Parser):Node {
 
     let tok = consume(parser, Operators.LEFT_PARENTHESIS);
     let result:Node = createNode(NodeKind.ENCAPSULATED, {start: tok.index});
+    skipAllDocumentation(parser);
     result.children.push(parseExpressionList(parser));
     tok = consume(parser, Operators.RIGHT_PARENTHESIS);
     result.end = tok.end;

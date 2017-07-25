@@ -110,6 +110,7 @@ export function parseNameTypeInit(parser:AS3Parser):Node {
     result.children.push(createNode(NodeKind.NAME, {tok: parser.tok}));
     nextToken(parser, true); // name
     result.children.push(parseOptionalType(parser));
+    skipAllDocumentation(parser);
     result.children.push(parseOptionalInit(parser));
     result.end = result.children.reduce((index:number, child:Node) => {
         return Math.max(index, child ? child.end : 0);
