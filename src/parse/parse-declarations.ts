@@ -5,7 +5,7 @@ import * as Keywords from '../syntax/keywords';
 import * as Operators from '../syntax/operators';
 import {startsWith} from '../string';
 import AS3Parser, {nextToken, nextTokenIgnoringDocumentation, consume, skip, tokIs, tryParse} from './parser';
-import {parseQualifiedName, parseBlock, parseParameterList, parseNameTypeInit} from './parse-common';
+import {parseQualifiedName, parseBlock, parseParameterList, parseNameTypeInit, removePackageFromName} from './parse-common';
 import {ASDOC_COMMENT, MULTIPLE_LINES_COMMENT} from './parser';
 import {VERBOSE} from '../config';
 import {parseExpression} from './parse-expressions';
@@ -222,8 +222,8 @@ function parseClass(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
     }
 
     let index = parser.tok.index,
-        name = parseQualifiedName(parser, true);
-    result.children.push(createNode(NodeKind.NAME, {start: index, text: name}));
+        name = parseQualifiedName(parser);
+    result.children.push(createNode(NodeKind.NAME, {start: index, end: index + name.length, text: removePackageFromName(name)}));
 
     result.children.push(convertMeta(parser, meta));
     result.children.push(convertModifiers(parser, modifier));
@@ -234,7 +234,7 @@ function parseClass(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
         if (tokIs(parser, Keywords.EXTENDS)) {
             nextToken(parser, true); // extends
             index = parser.tok.index;
-            name = parseQualifiedName(parser, false);
+            name = parseQualifiedName(parser);
             result.children.push(createNode(NodeKind.EXTENDS, {start: index, text: name}));
         } else if (tokIs(parser, Keywords.IMPLEMENTS)) {
             result.children.push(parseImplementsList(parser));
@@ -259,13 +259,13 @@ function parseImplementsList(parser:AS3Parser):Node {
     skipAllDocumentation(parser);
     let result:Node = createNode(NodeKind.IMPLEMENTS_LIST, {start: parser.tok.index});
     let index = parser.tok.index;
-    let name = parseQualifiedName(parser, true);
-    result.children.push(createNode(NodeKind.IMPLEMENTS, {start: index, text: name}));
+    let name = parseQualifiedName(parser);
+    result.children.push(createNode(NodeKind.IMPLEMENTS, {start: index, end: index + name.length, text: removePackageFromName(name)}));
     while (tokIs(parser, Operators.COMMA)) {
         nextToken(parser, true);
         let index = parser.tok.index;
-        let name = parseQualifiedName(parser, true);
-        result.children.push(createNode(NodeKind.IMPLEMENTS, {start: index, text: name}));
+        let name = parseQualifiedName(parser);
+        result.children.push(createNode(NodeKind.IMPLEMENTS, {start: index, end: index + name.length, text: removePackageFromName(name)}));
     }
     return result;
 }
@@ -352,20 +352,20 @@ function parseInterface(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
         result.children.push(parser.currentMultiLineComment);
         parser.currentMultiLineComment = null;
     }
-    let name = parseQualifiedName(parser, true);
-    result.children.push(createNode(NodeKind.NAME, {start: parser.tok.index, text: name}));
+    let name = parseQualifiedName(parser);
+    result.children.push(createNode(NodeKind.NAME, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
 
     result.children.push(convertMeta(parser, meta));
     result.children.push(convertModifiers(parser, modifier));
 
     if (tokIs(parser, Keywords.EXTENDS)) {
         nextToken(parser); // extends
-        name = parseQualifiedName(parser, false);
+        name = parseQualifiedName(parser);
         result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, text: name}));
     }
     while (tokIs(parser, Operators.COMMA)) {
         nextToken(parser); // comma
-        name = parseQualifiedName(parser, false);
+        name = parseQualifiedName(parser);
         result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, text: name}));
     }
     consume(parser, Operators.LEFT_CURLY_BRACKET);

@@ -11,7 +11,7 @@ import {parseOptionalType} from './parse-types';
 import {skipAllDocumentation} from './parse-literals';
 
 
-export function parseQualifiedName(parser:AS3Parser, skipPackage:boolean):string {
+export function parseQualifiedName(parser:AS3Parser):string {
     let buffer = '';
 
     buffer += parser.tok.text;
@@ -23,10 +23,11 @@ export function parseQualifiedName(parser:AS3Parser, skipPackage:boolean):string
         nextToken(parser); // name
     }
 
-    if (skipPackage) {
-        return buffer.substring(buffer.lastIndexOf(Operators.DOT) + 1);
-    }
     return buffer;
+}
+
+export function removePackageFromName(name:string):string {
+    return name.substring(name.lastIndexOf(Operators.DOT) + 1);
 }
 
 
