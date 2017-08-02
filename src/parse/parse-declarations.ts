@@ -235,7 +235,7 @@ function parseClass(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
             nextToken(parser, true); // extends
             index = parser.tok.index;
             name = parseQualifiedName(parser);
-            result.children.push(createNode(NodeKind.EXTENDS, {start: index, text: name}));
+            result.children.push(createNode(NodeKind.EXTENDS, {start: index, end: index + name.length, text: removePackageFromName(name)}));
         } else if (tokIs(parser, Keywords.IMPLEMENTS)) {
             result.children.push(parseImplementsList(parser));
         }
@@ -361,12 +361,12 @@ function parseInterface(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
     if (tokIs(parser, Keywords.EXTENDS)) {
         nextToken(parser); // extends
         name = parseQualifiedName(parser);
-        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, text: name}));
+        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
     }
     while (tokIs(parser, Operators.COMMA)) {
         nextToken(parser); // comma
         name = parseQualifiedName(parser);
-        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, text: name}));
+        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
     }
     consume(parser, Operators.LEFT_CURLY_BRACKET);
     result.children.push(parseInterfaceContent(parser));
