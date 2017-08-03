@@ -1,5 +1,5 @@
 import Node from "../syntax/node";
-import Emitter, { EmitterOptions } from "../emit/emitter";
+import Emitter, { EmitterOptions, ImportStatement } from "../emit/emitter";
 
 export interface CustomVisitor {
     visit: (emitter: Emitter, node: Node) => boolean;
@@ -7,4 +7,5 @@ export interface CustomVisitor {
     postProcessing?: (emitterOptions: EmitterOptions, data: string) => string;
     typeMap?: { [id: string]: string };
     identifierMap?: { [id: string]: string };
+    respondToExtraImportsNeeded?: (extraImportsNeeded: ImportStatement[]) => void;
 }

@@ -163,6 +163,15 @@ function filterAST(node: Node): Node {
     return newNode;
 }
 
+export class ImportStatement {
+    public identifier: string;
+    public source: string;
+
+    public constructor(identifier: string, source: string) {
+        this.identifier = identifier;
+        this.source = source;
+    }
+}
 
 export default class Emitter {
     public isNew: boolean = false;
@@ -178,7 +187,7 @@ export default class Emitter {
     public source: string;
     public options: EmitterOptions;
 
-    public headOutput: string = "";
+    public extraImportsNeeded: ImportStatement[] = [];
 
     public output: string = '';
     public index: number = 0;
@@ -207,7 +216,26 @@ export default class Emitter {
             visitNode(this, filterAST(ast));
             this.catchup(this.source.length - 1);
         });
-        return this.headOutput + this.output;
+
+        // notify all customVisitors about the extra imports that were needed,
+        // if the CustomVisitor wishes to hear about this information
+        this.options.customVisitors.forEach((visitor: CustomVisitor) => {
+            if (visitor.respondToExtraImportsNeeded) {
+                visitor.respondToExtraImportsNeeded(this.extraImportsNeeded);
+            }
+        });
+
+        let headOutput =
+            this.extraImportsNeeded.map(extraImportsNeeded => {
+                return `import { ${ extraImportsNeeded.identifier } } from "${ extraImportsNeeded.source }";`;
+            })
+            .join('\n');
+
+        if (headOutput.length > 0) {
+            headOutput += '\n';
+        }
+
+        return headOutput + this.output;
     }
 
     enterScope(declarations: Declaration[]): Scope {
@@ -362,7 +390,7 @@ export default class Emitter {
             !isGloballyAvailable &&
             !this.findDefInScope(identifier)
         ) {
-            this.headOutput += `import { ${ identifier } } from "${ from }";\n`;
+            this.extraImportsNeeded.push(new ImportStatement(identifier, from));
             this.declareInScope({ name: identifier });
         }
 
