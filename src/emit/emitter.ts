@@ -386,7 +386,7 @@ export default class Emitter {
 
         // Ensure this file is not declaring this class
         if (
-            this.source.indexOf(`class ${ identifier } `) === -1 &&
+            new RegExp(`class\\s+${ identifier }\\s`).test(this.source) === false &&
             !isGloballyAvailable &&
             !this.findDefInScope(identifier)
         ) {
