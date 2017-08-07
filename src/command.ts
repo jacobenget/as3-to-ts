@@ -122,6 +122,13 @@ export function run(): void {
         }
 
         let content = fs.readFileSync(inputFile, 'UTF-8').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/ {4}/g, '\t');
+
+        visitors.forEach((visitor: CustomVisitor) => {
+            if (visitor.preProcessing) {
+                content = visitor.preProcessing(emitterOptions, content, inputFile);
+            }
+        });
+
         let ast = parse(path.basename(file), content);
         let contents = emit(ast, content, emitterOptions);
 
