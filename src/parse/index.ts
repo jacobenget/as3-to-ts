@@ -6,7 +6,6 @@ import {parseCompilationUnit} from './parse-declarations';
 import {VERBOSE, WARNINGS} from '../config';
 
 export default function parse(filePath:string, content:string):Node {
-
     if(VERBOSE >= 1) {
         console.log("parse() ⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣⇣");
     }

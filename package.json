@@ -22,7 +22,7 @@
     "typescript",
     "compiler"
   ],
-  "publishConfig":{
+  "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
   "repository": {
@@ -33,11 +33,14 @@
     "url": "https://github.com/GoodgameStudios/as3-to-ts/issues"
   },
   "author": "François de Campredon <francois.de.campredon@gmail.com>",
-  "contributors": [{
-    "name": "Endel Dreyer"
-  }, {
-    "name": "Simon Buchan"
-  }],
+  "contributors": [
+    {
+      "name": "Endel Dreyer"
+    },
+    {
+      "name": "Simon Buchan"
+    }
+  ],
   "license": "Apache-2.0",
   "dependencies": {
     "fs-extra": "^0.24.0",

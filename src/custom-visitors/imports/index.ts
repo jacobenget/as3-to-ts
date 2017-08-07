@@ -15,6 +15,8 @@ function visit (emitter: Emitter, node: Node): boolean {
 
 function postProcessing (emitterOptions: EmitterOptions, contents: string): string {
 
+    console.log('POST IMPORT:', contents);
+
     //fix import statements for flash package:
     contents = contents.replace(/import {([ 0-9a-zA-Z]+)} from "[.\/]+flash[^"]+";?/gm, "import {$1} from \"@as3web/flash\"");
 

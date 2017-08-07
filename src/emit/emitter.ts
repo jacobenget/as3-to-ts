@@ -301,7 +301,10 @@ export default class Emitter {
 
     commentNode(node: Node, catchSemi: boolean): void {
         this.insert('/*');
-        this.catchup(node.end);
+        const source = this.sourceBetween(this.index, node.end).replace(/\*\//g, '');
+        this.insert(source);
+        this.index = node.end;
+        // this.catchup(node.end);
         let index = this.index;
         if (catchSemi) {
             while (true) {
@@ -592,7 +595,10 @@ function emitImport(emitter: Emitter, node: Node): void {
             parentNode = parentNode.parent;
         }
 
-        text = `{ ${ name } } from "${ getRelativePath(currentModule.split("."), text.split(".")) }"`;
+        // const importPath = getRelativePath(currentModule.split("."), text.split("."));
+        const importPath = text.replace(/\./g, '/');
+
+        text = `{ ${ name } } from "${ importPath }"`;
         emitter.insert(text);
         emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
         emitter.declareInScope({name});

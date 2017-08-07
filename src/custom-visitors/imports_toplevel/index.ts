@@ -14,6 +14,7 @@ function visit (emitter: Emitter, node: Node): boolean {
 }
 
 function postProcessing (emitterOptions: EmitterOptions, contents: string): string {
+    console.log('TOP LEVEL IMPORT: ', contents);
 
     //fix all import statements by removing ".." from the beginning
     contents = contents.replace(/import { ([a-zA-Z]+) } from "..\//g, "import {$1} from \".\/");
