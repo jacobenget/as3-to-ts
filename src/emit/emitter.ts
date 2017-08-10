@@ -164,12 +164,7 @@ function filterAST(node: Node): Node {
 }
 
 export class ImportStatement {
-    public identifier: string;
-    public source: string;
-
-    public constructor(identifier: string, source: string) {
-        this.identifier = identifier;
-        this.source = source;
+    public constructor(public identifier: string, public source: string) {
     }
 }
 
@@ -225,7 +220,7 @@ export default class Emitter {
             }
         });
 
-        let headOutput =
+        let headOutput = 
             this.extraImportsNeeded.map(extraImportsNeeded => {
                 return `import { ${ extraImportsNeeded.identifier } } from "${ extraImportsNeeded.source }";`;
             })
@@ -303,8 +298,8 @@ export default class Emitter {
         this.insert('/*');
         const source = this.sourceBetween(this.index, node.end).replace(/\*\//g, '');
         this.insert(source);
-        this.index = node.end;
-        // this.catchup(node.end);
+        this.skipTo(node.end);
+
         let index = this.index;
         if (catchSemi) {
             while (true) {
@@ -597,8 +592,17 @@ function emitImport(emitter: Emitter, node: Node): void {
 
         // const importPath = getRelativePath(currentModule.split("."), text.split("."));
         const importPath = text.replace(/\./g, '/');
+        let isDup = false;
+	
+        if (emitter.source.search(new RegExp(`class\\s+${name}\\b`)) >= 0) {
+            isDup = true;
+        }
 
-        text = `{ ${ name } } from "${ importPath }"`;
+        if (isDup) {
+            text = `{ ${ name } as dup_${name} } from "${ importPath }"`;
+        } else {
+            text = `{ ${ name } } from "${ importPath }"`;
+        }
         emitter.insert(text);
         emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
         emitter.declareInScope({name});
@@ -878,8 +882,14 @@ function emitClass(emitter: Emitter, node: Node): void {
     // ensure extends identifier is being imported
     let extendsNode = node.findChild(NodeKind.EXTENDS);
     if (extendsNode) {
-        emitIdent(emitter, extendsNode);
-        emitter.ensureImportIdentifier(extendsNode.text);
+        if (name.text === extendsNode.text) {
+            extendsNode.text = `dup_${extendsNode.text}`;
+            emitIdent(emitter, extendsNode);
+            emitter.ensureImportIdentifier(extendsNode.text.slice(4), `./${extendsNode.text.slice(4)}`, true, true);
+        } else {
+            emitIdent(emitter, extendsNode);
+            emitter.ensureImportIdentifier(extendsNode.text);
+        }
     }
 
     // ensure implements identifiers are being imported
@@ -894,7 +904,6 @@ function emitClass(emitter: Emitter, node: Node): void {
         contentsNode.forEach(node => {
             visitNode(emitter, node.findChild(NodeKind.META_LIST));
             emitter.catchup(node.start);
-            // console.log(node)
             switch (node.kind) {
                 case NodeKind.SET:
                     emitSet(emitter, node);
