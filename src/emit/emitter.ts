@@ -617,7 +617,7 @@ function getRelativePath (currentPath: string[], targetPath: string[]) {
 
     let relative = (currentPath.length === 0)
         ? "."
-        : currentPath.map(() => "..").join("/")
+        : currentPath.map(() => "..").join("/");
 
     return `${ relative }/${ targetPath.join("/") }`;
 }
@@ -885,7 +885,7 @@ function emitClass(emitter: Emitter, node: Node): void {
         if (name.text === extendsNode.text) {
             extendsNode.text = `dup_${extendsNode.text}`;
             emitIdent(emitter, extendsNode);
-            emitter.ensureImportIdentifier(extendsNode.text.slice(4), `./${extendsNode.text.slice(4)}`, true, true);
+            emitter.ensureImportIdentifier(extendsNode.text.slice(4));
         } else {
             emitIdent(emitter, extendsNode);
             emitter.ensureImportIdentifier(extendsNode.text);
@@ -1006,7 +1006,17 @@ function emitMethod(emitter: Emitter, node: Node): void {
         // }
 
     }
+
+    const regex = new RegExp(String.raw`set +${node.text}\b.*\(.*:\s*(\S+)\s*\)`);
+
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
+
+        if (node.kind === NodeKind.GET) {
+            const m = emitter.source.match(regex);
+            if (m) {
+                node.children[node.children.length - 2].text = m[1];
+            }
+        }
         visitNodes(emitter, node.getChildFrom(NodeKind.NAME));
     });
 }
