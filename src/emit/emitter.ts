@@ -476,7 +476,25 @@ function emitPackage(emitter: Emitter, node: Node): void {
 
 function emitMeta(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    emitter.commentNode(node, false);
+
+    if (emitter.index === node.start) {
+        emitter.commentNode(node, false);
+    } else {
+        // emitter is already past this node's starting point,
+        // which can happen because some statements (e.g. imports) can appear between metadata and the thing the metadata decorates,
+        // which means the other statement (e.g. the import) has been emitted, moving the emitter well past the point where this metadata appears in the source (e.g. it appears before the 'import'),
+        // likely meaning that the text in the source for this metadata was just skipped and faithfully copied to the output,
+        // meaning that we just have to find this text as it already exists in the output and 'comment' it there
+        let metaToComment = emitter.sourceBetween(node.start, node.end);
+        let startInOutput = emitter.output.lastIndexOf(metaToComment);
+        if (startInOutput === -1) {
+            if (WARNINGS >= 1) {
+                console.log(`emitter.ts: *** MAJOR WARNING *** emitMeta() => : attempted to comment metadata '${ metaToComment }' but emitter has already emitted output past this point, and this text in metadata in question doesn't already appear in the output.  No idea what could cause this`);
+            }
+        } else {
+            emitter.output = emitter.output.slice(0, startInOutput) + '/*' + metaToComment + '*/' + emitter.output.slice(startInOutput + metaToComment.length);
+        }
+    }
 }
 
 
