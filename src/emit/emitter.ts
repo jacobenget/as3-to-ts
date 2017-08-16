@@ -5,6 +5,7 @@ import assign = require('object-assign');
 import { CustomVisitor } from "../custom-visitors"
 import {VERBOSE, WARNINGS} from '../config';
 import * as Operators from '../syntax/operators';
+import * as assert from 'assert';
 
 const util = require('util');
 
@@ -1025,14 +1026,41 @@ function emitMethod(emitter: Emitter, node: Node): void {
 
     }
 
-    const regex = new RegExp(String.raw`set +${node.text}\b.*\(.*:\s*(\S+)\s*\)`);
-
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
 
         if (node.kind === NodeKind.GET) {
-            const m = emitter.source.match(regex);
-            if (m) {
-                node.children[node.children.length - 2].text = m[1];
+
+            // Problem: ActionScript allows paired 'get' and 'set methods to have different types.
+            // TypeScript does not allow this, so the types of the 'get' and 'set' methods need to match.
+            // Fix here involves ignoring the type on the 'get' and using the type on the 'set' for the 'get' instead
+
+            let hasStaticModifer = function(setOrGetNode: Node) : boolean {
+                return setOrGetNode
+                        .findChild(NodeKind.MOD_LIST)
+                        .findChildren(NodeKind.MODIFIER)
+                        .filter(modifier => modifier.text === 'static').length > 0;
+            };
+
+            let getIsStatic = hasStaticModifer(node);
+
+            // find all 'set' nodes that appear in the same class, that have the same name, and are the same 'static-ness'
+            let matchingSetNodes = node.parent
+                .findChildren(NodeKind.SET)
+                .filter(sibling => sibling.text === node.text)
+                .filter(sibling => getIsStatic === hasStaticModifer(sibling));
+
+            assert(matchingSetNodes.length <= 1);   // there should be at most one such matching set node
+
+            if (matchingSetNodes.length > 0) {  // and if we found a matching set node, use its type for this 'get' node
+                let parameterList = matchingSetNodes[0].findChild(NodeKind.PARAMETER_LIST);
+                let parameterNode = parameterList.findChild(NodeKind.PARAMETER);
+                let nameTypeInit = parameterNode.findChild(NodeKind.NAME_TYPE_INIT);
+                if (nameTypeInit.findChild(NodeKind.TYPE) !== null && node.findChild(NodeKind.TYPE) !== null) {
+                    let type = nameTypeInit.findChild(NodeKind.TYPE);
+                    node.findChild(NodeKind.TYPE).text = type.text;
+                } else {
+                    // TODO: handle cases where either the 'get' or the 'set' node's type is more complicated than a single NodeKind.TYPE (i.e. it's a NodeKind.VECTOR)
+                }
             }
         }
         visitNodes(emitter, node.getChildFrom(NodeKind.NAME));
