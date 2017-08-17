@@ -611,17 +611,8 @@ function emitImport(emitter: Emitter, node: Node): void {
 
         // const importPath = getRelativePath(currentModule.split("."), text.split("."));
         const importPath = text.replace(/\./g, '/');
-        let isDup = false;
-	
-        if (emitter.source.search(new RegExp(`class\\s+${name}\\b`)) >= 0) {
-            isDup = true;
-        }
 
-        if (isDup) {
-            text = `{ ${ name } as dup_${name} } from "${ importPath }"`;
-        } else {
-            text = `{ ${ name } } from "${ importPath }"`;
-        }
+        text = `{ ${ name } } from "${ importPath }"`;
         emitter.insert(text);
         emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
         emitter.declareInScope({name});
@@ -901,14 +892,8 @@ function emitClass(emitter: Emitter, node: Node): void {
     // ensure extends identifier is being imported
     let extendsNode = node.findChild(NodeKind.EXTENDS);
     if (extendsNode) {
-        if (name.text === extendsNode.text) {
-            extendsNode.text = `dup_${extendsNode.text}`;
-            emitIdent(emitter, extendsNode);
-            emitter.ensureImportIdentifier(extendsNode.text.slice(4));
-        } else {
-            emitIdent(emitter, extendsNode);
-            emitter.ensureImportIdentifier(extendsNode.text);
-        }
+        emitIdent(emitter, extendsNode);
+        emitter.ensureImportIdentifier(extendsNode.text);
     }
 
     // ensure implements identifiers are being imported
