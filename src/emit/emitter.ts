@@ -1069,15 +1069,40 @@ function emitClassField(emitter: Emitter, node: Node): void {
     let mods = node.findChild(NodeKind.MOD_LIST);
     if (mods) {
         emitter.catchup(mods.start);
+
+        let modifiersToEmit = [
+            Keywords.PRIVATE,
+            Keywords.PUBLIC,
+            Keywords.PROTECTED,
+            Keywords.STATIC,
+        ];
+
+        let mapFromModifiersToTextToEmit : any = {};
+        modifiersToEmit.forEach(keyword => {
+            mapFromModifiersToTextToEmit[keyword] = keyword;
+        });
+
+        // Need to fix this difference:
+        //  ActionScript: 'static' modifier can appear before or after access modifier
+        //  TypeScript: 'static' modifier must appear after access modifier
+        if (mods.children.findIndex(node => node.text === Keywords.STATIC) !== -1) { // if the 'static' modifier exists
+            let modifiersToEmit = mods.children.map(node => node.text).filter(modifier => mapFromModifiersToTextToEmit.hasOwnProperty(modifier));
+            let lastModifierToEmit = modifiersToEmit[modifiersToEmit.length - 1];
+            if (lastModifierToEmit !== Keywords.STATIC) {  // and the last effective modifier is *not* 'static'
+                // then swap the last one with 'static'
+                mapFromModifiersToTextToEmit[Keywords.STATIC] = lastModifierToEmit;
+                mapFromModifiersToTextToEmit[lastModifierToEmit] = Keywords.STATIC;
+            }
+        }
+
         mods.children.forEach(node => {
             emitter.catchup(node.start);
-            if (node.text !== Keywords.PRIVATE &&
-                    node.text !== Keywords.PUBLIC &&
-                    node.text !== Keywords.PROTECTED &&
-                    node.text !== Keywords.STATIC) {
+            if (mapFromModifiersToTextToEmit.hasOwnProperty(node.text)) {
+                emitter.insert(mapFromModifiersToTextToEmit[node.text]);
+                emitter.skipTo(node.end);
+            } else {
                 emitter.commentNode(node, false);
             }
-            emitter.catchup(node.end);
         });
     }
 }
