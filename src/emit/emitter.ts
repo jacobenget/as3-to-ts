@@ -1,91 +1,91 @@
-import NodeKind, { nodeKindName } from "../syntax/nodeKind";
-import * as Keywords from "../syntax/keywords";
-import Node, { createNode } from "../syntax/node";
-import assign = require("object-assign");
-import { CustomVisitor } from "../custom-visitors";
-import { VERBOSE, WARNINGS } from "../config";
-import * as Operators from "../syntax/operators";
-import * as assert from "assert";
+import NodeKind, { nodeKindName } from '../syntax/nodeKind';
+import * as Keywords from '../syntax/keywords';
+import Node, { createNode } from '../syntax/node';
+import assign = require('object-assign');
+import { CustomVisitor } from '../custom-visitors';
+import { VERBOSE, WARNINGS } from '../config';
+import * as Operators from '../syntax/operators';
+import * as assert from 'assert';
 
-const util = require("util");
+const util = require('util');
 
 const GLOBAL_NAMES = [
-    "undefined",
-    "NaN",
-    "Infinity",
-    "Array",
-    "Boolean",
-    "decodeURI",
-    "decodeURIComponent",
-    "encodeURI",
-    "encodeURIComponent",
-    "escape",
-    "int",
-    "isFinite",
-    "isNaN",
-    "isXMLName",
-    "Number",
-    "Object",
-    "parseFloat",
-    "parseInt",
-    "String",
-    "trace",
-    "uint",
-    "unescape",
-    "Vector",
-    "XML",
-    "XMLList",
-    "arguments",
-    "Class",
-    "Date",
-    "Function",
-    "Math",
-    "Namespace",
-    "QName",
-    "RegExp",
-    "JSON",
-    "Error",
-    "EvalError",
-    "RangeError",
-    "ReferenceError",
-    "SyntaxError",
-    "TypeError",
-    "URIError"
+    'undefined',
+    'NaN',
+    'Infinity',
+    'Array',
+    'Boolean',
+    'decodeURI',
+    'decodeURIComponent',
+    'encodeURI',
+    'encodeURIComponent',
+    'escape',
+    'int',
+    'isFinite',
+    'isNaN',
+    'isXMLName',
+    'Number',
+    'Object',
+    'parseFloat',
+    'parseInt',
+    'String',
+    'trace',
+    'uint',
+    'unescape',
+    'Vector',
+    'XML',
+    'XMLList',
+    'arguments',
+    'Class',
+    'Date',
+    'Function',
+    'Math',
+    'Namespace',
+    'QName',
+    'RegExp',
+    'JSON',
+    'Error',
+    'EvalError',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError'
 ];
 
 const TYPE_REMAP: { [id: string]: string } = {
-    Class: "any", // 80pro: was mapped to 'Object' before
-    Object: "any",
-    String: "string",
-    Boolean: "boolean",
-    Number: "number",
-    int: "number",
-    uint: "number",
-    "*": "any",
-    Array: "any[]",
-    Dictionary: "Object", // 80pro: was mapped to 'Map<any, any>' before
+    Class: 'any', // 80pro: was mapped to 'Object' before
+    Object: 'any',
+    String: 'string',
+    Boolean: 'boolean',
+    Number: 'number',
+    int: 'number',
+    uint: 'number',
+    '*': 'any',
+    Array: 'any[]',
+    Dictionary: 'Object', // 80pro: was mapped to 'Map<any, any>' before
 
     // Inexistent errors
-    ArgumentError: "Error",
-    DefinitionError: "Error",
-    SecurityError: "Error",
-    VerifyError: "Error"
+    ArgumentError: 'Error',
+    DefinitionError: 'Error',
+    SecurityError: 'Error',
+    VerifyError: 'Error'
 };
 
 // TODO: improve me (used only on emitType())
-const TYPE_REMAP_VALUES = ["void"];
+const TYPE_REMAP_VALUES = ['void'];
 for (var k in TYPE_REMAP) {
     TYPE_REMAP_VALUES.push(TYPE_REMAP[k]);
 }
 
 const IDENTIFIER_REMAP: { [id: string]: string } = {
-    Dictionary: "Map<any, any>",
+    Dictionary: 'Map<any, any>',
 
     // Inexistent errors
-    ArgumentError: "Error",
-    DefinitionError: "Error",
-    SecurityError: "Error",
-    VerifyError: "Error"
+    ArgumentError: 'Error',
+    DefinitionError: 'Error',
+    SecurityError: 'Error',
+    VerifyError: 'Error'
 };
 
 interface Scope {
@@ -174,11 +174,11 @@ export function visitNode(emitter: Emitter, node: Node): void {
 
     if (VERBOSE >= 2 && VISITORS[node.kind]) {
         console.log(
-            "visit:" +
+            'visit:' +
                 VISITORS[node.kind].name +
-                "() <====================================="
+                '() <====================================='
         );
-        console.log("node: " + node.toString());
+        console.log('node: ' + node.toString());
     }
     visitor(emitter, node);
 }
@@ -224,7 +224,7 @@ export default class Emitter {
 
     public extraImportsNeeded: ImportStatement[] = [];
 
-    public output: string = "";
+    public output: string = '';
     public index: number = 0;
 
     public rootScope: Scope = null;
@@ -236,8 +236,8 @@ export default class Emitter {
         this.source = source;
         this.options = assign(
             {
-                includePath: "",
-                lineSeparator: "\n",
+                includePath: '',
+                lineSeparator: '\n',
                 useNamespaces: false,
                 customVisitors: []
             },
@@ -247,7 +247,7 @@ export default class Emitter {
 
     emit(ast: Node): string {
         if (VERBOSE >= 1) {
-            console.log("emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑");
+            console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
 
         this.withScope([], rootScope => {
@@ -268,10 +268,10 @@ export default class Emitter {
             .map(extraImportsNeeded => {
                 return `import { ${extraImportsNeeded.identifier} } from "${extraImportsNeeded.source}";`;
             })
-            .join("\n");
+            .join('\n');
 
         if (headOutput.length > 0) {
-            headOutput += "\n";
+            headOutput += '\n';
         }
 
         return headOutput + this.output;
@@ -283,10 +283,10 @@ export default class Emitter {
 
     exitScope(checkScope: Scope = null): void {
         if (checkScope && this.scope !== checkScope) {
-            throw new Error("Mismatched enterScope() / exitScope().");
+            throw new Error('Mismatched enterScope() / exitScope().');
         }
         if (!this.scope) {
-            throw new Error("Unmatched exitScope().");
+            throw new Error('Unmatched exitScope().');
         }
         this.scope = this.scope.parent;
     }
@@ -341,10 +341,10 @@ export default class Emitter {
     }
 
     commentNode(node: Node, catchSemi: boolean): void {
-        this.insert("/*");
+        this.insert('/*');
         const source = this.sourceBetween(this.index, node.end).replace(
             /\*\//g,
-            ""
+            ''
         );
         this.insert(source);
         this.skipTo(node.end);
@@ -355,18 +355,18 @@ export default class Emitter {
                 if (index >= this.source.length) {
                     break;
                 }
-                if (this.source[index] === "\n") {
+                if (this.source[index] === '\n') {
                     this.catchup(index);
                     break;
                 }
-                if (this.source[index] === ";") {
+                if (this.source[index] === ';') {
                     this.catchup(index + 1);
                     break;
                 }
                 index++;
             }
         }
-        this.insert("*/");
+        this.insert('*/');
     }
 
     catchup(index: number): void {
@@ -400,7 +400,7 @@ export default class Emitter {
         // process.stdout.write(" " + lastWord);
         // console.log("+++++++++ " + (string.indexOf("for(") !== -1));
         if (VERBOSE >= 2) {
-            console.log("output (all): " + this.output);
+            console.log('output (all): ' + this.output);
             // let a = 1; // insert breakpoint here
         }
     }
@@ -408,7 +408,7 @@ export default class Emitter {
     consume(string: string, limit: number): void {
         let index = this.source.indexOf(string, this.index) + string.length;
         if (index > limit || index < this.index) {
-            throw new Error("invalid consume");
+            throw new Error('invalid consume');
         }
         this.index = index;
     }
@@ -422,7 +422,7 @@ export default class Emitter {
         checkGlobals: boolean = true
     ): void {
         // warning if this is a as3-path, not a plain name (like shared.Node should error)
-        if (WARNINGS >= 1 && identifier.split(".").length > 1) {
+        if (WARNINGS >= 1 && identifier.split('.').length > 1) {
             console.log(
                 `emitter.ts: *** MAJOR WARNING *** ensureImportIdentifier() => : invalid object name identifier: ${identifier}`
             );
@@ -479,7 +479,7 @@ function emitPackage(emitter: Emitter, node: Node): void {
     if (emitter.options.useNamespaces) {
         emitter.catchup(node.start);
         emitter.skip(Keywords.PACKAGE.length);
-        emitter.insert("namespace");
+        emitter.insert('namespace');
         visitNodes(emitter, node.children);
     } else {
         emitter.catchup(node.start);
@@ -501,7 +501,7 @@ function emitPackage(emitter: Emitter, node: Node): void {
         // pull out all lines added by visiting the package contents
         let linesInPackageContents = emitter.output
             .substring(indexBeforePackageContents)
-            .split("\n");
+            .split('\n');
 
         // ignore the first line, which is the line that contains the package's left curly bracket, and should just contain whitespace
         let lineContainingLeftCurlyBracket = linesInPackageContents[0];
@@ -528,12 +528,12 @@ function emitPackage(emitter: Emitter, node: Node): void {
             let leftPaddingToRemove = linesBeginningWithExportModifer[0].match(
                 /^(\s*)export/
             )[1];
-            let regexMatchingLeftPadding = RegExp("^" + leftPaddingToRemove);
+            let regexMatchingLeftPadding = RegExp('^' + leftPaddingToRemove);
             let linesWithLeftPaddingRemoved = linesInPackageContents.map(line =>
-                line.replace(regexMatchingLeftPadding, "")
+                line.replace(regexMatchingLeftPadding, '')
             );
             let adjustedLinesInPackageContents = linesWithLeftPaddingRemoved.join(
-                "\n"
+                '\n'
             );
             emitter.output =
                 emitter.output.substring(0, indexBeforePackageContents) +
@@ -567,9 +567,9 @@ function emitMeta(emitter: Emitter, node: Node): void {
         } else {
             emitter.output =
                 emitter.output.slice(0, startInOutput) +
-                "/*" +
+                '/*' +
                 metaToComment +
-                "*/" +
+                '*/' +
                 emitter.output.slice(startInOutput + metaToComment.length);
         }
     }
@@ -586,10 +586,10 @@ function emitEmbed(emitter: Emitter, node: Node): void {
 }
 
 function emitImport(emitter: Emitter, node: Node): void {
-    let statement = Keywords.IMPORT + " ";
+    let statement = Keywords.IMPORT + ' ';
 
     // emit one import statement for each definition found in that namespace
-    if (node.text.indexOf("*") !== -1) {
+    if (node.text.indexOf('*') !== -1) {
         let ns = node.text.substring(0, node.text.length - 2);
         let definitions = emitter.options.definitionsByNamespace[ns];
 
@@ -604,7 +604,7 @@ function emitImport(emitter: Emitter, node: Node): void {
                 importNode.text = `${ns}.${definition}`;
                 importNode.parent = node.parent;
                 emitImport(emitter, importNode);
-                emitter.insert(";\n" + leftPadding);
+                emitter.insert(';\n' + leftPadding);
             });
 
             skipTo = node.end + Keywords.IMPORT.length + 2;
@@ -650,9 +650,9 @@ function emitImport(emitter: Emitter, node: Node): void {
         emitter.catchup(node.start);
         emitter.insert(statement);
 
-        let split = node.text.split(".");
+        let split = node.text.split('.');
         let name = split[split.length - 1];
-        emitter.insert(name + " = ");
+        emitter.insert(name + ' = ');
 
         // apply custom visitor translation
         if (hasCustomVisitor) {
@@ -667,13 +667,13 @@ function emitImport(emitter: Emitter, node: Node): void {
         emitter.declareInScope({ name });
     } else {
         emitter.catchup(node.start);
-        emitter.insert(Keywords.IMPORT + " ");
+        emitter.insert(Keywords.IMPORT + ' ');
 
-        let split = text.split(".");
+        let split = text.split('.');
         let name = split.pop();
 
         // Find current module name to output relative import
-        let currentModule = "";
+        let currentModule = '';
         let parentNode = node.parent;
         while (parentNode) {
             if (parentNode.kind === NodeKind.PACKAGE) {
@@ -684,7 +684,7 @@ function emitImport(emitter: Emitter, node: Node): void {
         }
 
         // const importPath = getRelativePath(currentModule.split("."), text.split("."));
-        const importPath = text.replace(/\./g, "/");
+        const importPath = text.replace(/\./g, '/');
 
         text = `{ ${name} } from "${importPath}"`;
         emitter.insert(text);
@@ -700,9 +700,9 @@ function getRelativePath(currentPath: string[], targetPath: string[]) {
     }
 
     let relative =
-        currentPath.length === 0 ? "." : currentPath.map(() => "..").join("/");
+        currentPath.length === 0 ? '.' : currentPath.map(() => '..').join('/');
 
-    return `${relative}/${targetPath.join("/")}`;
+    return `${relative}/${targetPath.join('/')}`;
 }
 
 function getDeclarationType(emitter: Emitter, node: Node): string {
@@ -739,7 +739,7 @@ function emitInterface(emitter: Emitter, node: Node): void {
             emitter.catchup(node.start);
             let type = node.findChild(NodeKind.TYPE) || node.children[2];
 
-            if (node.kind === NodeKind.TYPE && node.text === "function") {
+            if (node.kind === NodeKind.TYPE && node.text === 'function') {
                 emitter.skip(Keywords.FUNCTION.length + 1);
                 visitNode(emitter, node.findChild(NodeKind.PARAMETER_LIST));
                 visitNode(emitter, type);
@@ -880,7 +880,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
 
     emitter.catchup(inNode.start);
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
-    emitter.insert("of ");
+    emitter.insert('of ');
 
     visitNodes(emitter, inNode.children);
     visitNode(emitter, blockNode);
@@ -914,19 +914,19 @@ function emitForEach(emitter: Emitter, node: Node): void {
             }
         }
         emitter.catchup(node.start + Keywords.FOR.length);
-        emitter.consume("each", varNode.start);
+        emitter.consume('each', varNode.start);
         emitter.catchup(varNode.start);
         emitter.insert(`${nameNode.text}`);
         emitter.skipTo(varNode.end);
     } else {
         emitter.catchup(node.start + Keywords.FOR.length);
-        emitter.consume("each", varNode.start);
+        emitter.consume('each', varNode.start);
         visitNode(emitter, varNode);
     }
 
     emitter.catchup(inNode.start);
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
-    emitter.insert("of ");
+    emitter.insert('of ');
 
     visitNodes(emitter, inNode.children);
     visitNode(emitter, blockNode);
@@ -968,14 +968,14 @@ function getClassDeclarations(
 
             let modList = node.findChild(NodeKind.MOD_LIST);
             let isStatic =
-                modList && modList.children.some(mod => mod.text === "static");
+                modList && modList.children.some(mod => mod.text === 'static');
             return {
                 name: nameNode.text,
                 type: getDeclarationType(
                     emitter,
                     node.findChild(NodeKind.NAME_TYPE_INIT)
                 ),
-                bound: isStatic ? className : "this"
+                bound: isStatic ? className : 'this'
             };
         })
         .filter(el => !!el);
@@ -1043,7 +1043,7 @@ function emitSet(emitter: Emitter, node: Node): void {
     emitClassField(emitter, node);
 
     let name = node.findChild(NodeKind.NAME);
-    emitter.consume("function", name.start);
+    emitter.consume('function', name.start);
 
     let params = node.findChild(NodeKind.PARAMETER_LIST);
     visitNode(emitter, params);
@@ -1063,7 +1063,7 @@ function emitConstList(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     let nameTypeInit = node.findChild(NodeKind.NAME_TYPE_INIT);
     emitter.skipTo(nameTypeInit.start);
-    emitter.insert("const ");
+    emitter.insert('const ');
     visitNode(emitter, nameTypeInit);
 }
 
@@ -1087,14 +1087,14 @@ function emitMethod(emitter: Emitter, node: Node): void {
         name.text !== emitter.currentClassName
     ) {
         emitClassField(emitter, node);
-        emitter.consume("function", name.start);
+        emitter.consume('function', name.start);
         emitter.catchup(name.end);
     } else {
         let mods = node.findChild(NodeKind.MOD_LIST);
         if (mods) {
             emitter.catchup(mods.start);
         }
-        emitter.insert("constructor");
+        emitter.insert('constructor');
         emitter.skipTo(name.end);
 
         // // find "super" on constructor and move it to the beginning of the
@@ -1131,7 +1131,7 @@ function emitMethod(emitter: Emitter, node: Node): void {
                     setOrGetNode
                         .findChild(NodeKind.MOD_LIST)
                         .findChildren(NodeKind.MODIFIER)
-                        .filter(modifier => modifier.text === "static").length >
+                        .filter(modifier => modifier.text === 'static').length >
                     0
                 );
             };
@@ -1247,13 +1247,13 @@ function emitDeclaration(emitter: Emitter, node: Node): void {
         emitter.catchup(mods.start);
         let insertExport = false;
         mods.children.forEach(node => {
-            if (node.text !== "private") {
+            if (node.text !== 'private') {
                 insertExport = true;
             }
             emitter.skipTo(node.end);
         });
         if (insertExport) {
-            emitter.insert("export");
+            emitter.insert('export');
         }
     }
 }
@@ -1302,7 +1302,7 @@ function emitVector(emitter: Emitter, node: Node): void {
     let type = node.findChild(NodeKind.TYPE);
     if (!type) {
         type = createNode(NodeKind.TYPE, {
-            text: "any",
+            text: 'any',
             start: node.start,
             end: node.end
         });
@@ -1315,7 +1315,7 @@ function emitVector(emitter: Emitter, node: Node): void {
         emitType(emitter, type);
     }
 
-    emitter.insert("[]");
+    emitter.insert('[]');
 
     emitter.skipTo(node.end);
 }
@@ -1323,18 +1323,18 @@ function emitVector(emitter: Emitter, node: Node): void {
 function emitShortVector(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     let vector = node.findChild(NodeKind.VECTOR);
-    emitter.insert("Array");
+    emitter.insert('Array');
     let type = vector.findChild(NodeKind.TYPE);
     if (type) {
         emitType(emitter, type);
     } else {
-        emitter.insert("any");
+        emitter.insert('any');
     }
     emitter.catchup(vector.end);
-    emitter.insert("(");
+    emitter.insert('(');
     let arrayLiteral = node.findChild(NodeKind.ARRAY);
     emitArray(emitter, arrayLiteral);
-    emitter.insert(")");
+    emitter.insert(')');
     emitter.skipTo(node.end);
 }
 
@@ -1355,22 +1355,22 @@ function emitCall(emitter: Emitter, node: Node): void {
         if (isNew) {
             let vector = node.children[0];
             let args = node.children[1];
-            emitter.insert("[");
+            emitter.insert('[');
             if (WARNINGS >= 2 && args.children.length > 0) {
                 console.log(
-                    "emitter.ts: *** MINOR WARNING *** emitCall() => NodeKind.VECTOR with arguments not implemented."
+                    'emitter.ts: *** MINOR WARNING *** emitCall() => NodeKind.VECTOR with arguments not implemented.'
                 );
             }
-            emitter.insert("]");
+            emitter.insert(']');
             emitter.skipTo(args.end);
             return;
         } else {
             if (isCast(emitter, node)) {
                 emitter.catchup(node.start);
-                emitter.insert("<");
+                emitter.insert('<');
                 const vec: Node = node.findChild(NodeKind.VECTOR);
                 visitNodes(emitter, [vec]);
-                emitter.insert(">");
+                emitter.insert('>');
                 const args: Node = node.findChild(NodeKind.ARGUMENTS);
                 emitter.skipTo(args.start);
                 visitNodes(emitter, [args]);
@@ -1383,12 +1383,12 @@ function emitCall(emitter: Emitter, node: Node): void {
             const args: Node = node.findChild(NodeKind.ARGUMENTS);
             const rtype: string = emitter.getTypeRemap(type.text) || type.text;
             emitter.catchup(node.start);
-            if (rtype === "string" || rtype === "number") {
+            if (rtype === 'string' || rtype === 'number') {
                 emitter.catchup(node.start);
             } else {
-                emitter.insert("<");
+                emitter.insert('<');
                 emitter.insert(rtype);
-                emitter.insert(">");
+                emitter.insert('>');
                 emitter.skipTo(args.start);
                 visitNodes(emitter, [args]);
                 return;
@@ -1469,19 +1469,19 @@ function emitCatch(emitter: Emitter, node: Node): void {
     if (exceptionType !== null) {
         let exceptionTypeName =
             emitter.getTypeRemap(exceptionType.text) || exceptionType.text;
-        if (exceptionTypeName === "any") {
+        if (exceptionTypeName === 'any') {
             // don't build an 'if' statement to check for an instance of this type, because all values are of type 'any', so the 'if' will never be false
         } else {
             // Surround the 'catch' body (after giving it an extra level of indentation) with an 'if' that appropriately checks the type of the exception being thrown,
             // and end the 'if' with an 'else' that re-throws the exception in the case where the type didn't match
             emitter.catchup(block.end);
             let blockBeginIndex = emitter.output.indexOf(
-                "{",
+                '{',
                 outputLengthBeforeBlockEmit
             );
             let emittedBlock = emitter.output.slice(blockBeginIndex + 1);
-            emittedBlock = emittedBlock.replace(/\n/g, "\n\t"); // indent the full block an extra level (here we're assuming that 'tabs' are used instead of 'spaces' for indenting)
-            let leftPaddingForIfStatement = leftPaddingAtCatch + "\t";
+            emittedBlock = emittedBlock.replace(/\n/g, '\n\t'); // indent the full block an extra level (here we're assuming that 'tabs' are used instead of 'spaces' for indenting)
+            let leftPaddingForIfStatement = leftPaddingAtCatch + '\t';
 
             emitter.output =
                 emitter.output.slice(0, blockBeginIndex + 1) +
@@ -1493,7 +1493,7 @@ function emitCatch(emitter: Emitter, node: Node): void {
             emitter.skipTo(indexBeforeSkip);
 
             emitter.output +=
-                ") {" +
+                ') {' +
                 emittedBlock +
                 `\n${leftPaddingForIfStatement}else { throw ${exceptionName}; }\n${leftPaddingAtCatch}}`;
         }
@@ -1507,14 +1507,14 @@ function emitRelation(emitter: Emitter, node: Node): void {
         // TODO: implement relation with type cast to vectors
         //       e.g. (myVector as Vector.<Boolean>)
         if (node.lastChild.kind === NodeKind.IDENTIFIER) {
-            emitter.insert("(<");
+            emitter.insert('(<');
             emitter.insert(
                 emitter.getTypeRemap(node.lastChild.text) || node.lastChild.text
             );
-            emitter.insert(">");
+            emitter.insert('>');
             visitNodes(emitter, node.getChildUntil(NodeKind.AS));
             emitter.catchup(as.start);
-            emitter.insert(")");
+            emitter.insert(')');
             emitter.skipTo(node.end);
         } else if (node.lastChild.kind === NodeKind.VECTOR) {
             visitNodes(emitter, node.children);
@@ -1565,7 +1565,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
 
     let def = emitter.findDefInScope(node.text);
     if (def && def.bound) {
-        emitter.insert(def.bound + ".");
+        emitter.insert(def.bound + '.');
     }
 
     if (
@@ -1583,9 +1583,9 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
             if (emitter.inE4X) {
-                emitter.insert("n$.");
+                emitter.insert('n$.');
             } else {
-                emitter.insert("this.");
+                emitter.insert('this.');
             }
         }
     }
@@ -1595,7 +1595,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     if (emitter.inE4X) {
         let nodeVal = node.text;
 
-        if (node.text[0] === "@") {
+        if (node.text[0] === '@') {
             emitter.insert(`attribute('${node.text.slice(1)}')`);
         } else {
             emitter.insert(node.text);
@@ -1612,15 +1612,15 @@ function emitDot(emitter: Emitter, node: Node) {
     let dotSibling = node.nextSibling;
     let isConditionalCompilation =
         dotSibling && dotSibling.kind === NodeKind.BLOCK;
-    let template = "if ($1)";
+    let template = 'if ($1)';
 
     if (!isConditionalCompilation && node.parent.kind === NodeKind.CONDITION) {
         let separator = emitter.sourceBetween(
             node.children[0].end,
             node.children[0].end + 2
         );
-        isConditionalCompilation = separator === "::";
-        template = "$1";
+        isConditionalCompilation = separator === '::';
+        template = '$1';
     }
 
     // wrap conditional compilation into Node.js conditional for
@@ -1633,7 +1633,7 @@ function emitDot(emitter: Emitter, node: Node) {
         emitter.catchup(node.start);
         emitter.insert(
             template.replace(
-                "$1",
+                '$1',
                 `process.env.${node.children[1].text.toUpperCase()}`
             )
         );
@@ -1647,7 +1647,7 @@ function emitDot(emitter: Emitter, node: Node) {
 }
 
 function emitE4XAttr(emitter: Emitter, node: Node): void {
-    console.log("E4XAttr:", node.parent.kind, drawNode(node));
+    console.log('E4XAttr:', node.parent.kind, drawNode(node));
 }
 
 function emitE4XFilter(emitter: Emitter, node: Node): void {
@@ -1666,11 +1666,11 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     emitter.inE4X = true;
 
     visitNodes(emitter, node.children);
-    console.log("Filter:", node.parent.kind, drawNode(node));
+    console.log('Filter:', node.parent.kind, drawNode(node));
 
     emitter.inE4X = false;
 
-    emitter.insert(")");
+    emitter.insert(')');
 
     emitter.skipTo(node.end);
 
@@ -1696,8 +1696,8 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
 
-    if (node.text[0] === "@") {
-        console.log("LITERAL:", node.text);
+    if (node.text[0] === '@') {
+        console.log('LITERAL:', node.text);
         emitter.insert(`attribute('${node.text.slice(1)}')`);
     } else {
         emitter.insert(node.text);
@@ -1708,13 +1708,13 @@ function emitLiteral(emitter: Emitter, node: Node): void {
 
 function emitArray(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    emitter.insert("[");
+    emitter.insert('[');
     if (node.children.length > 0) {
         emitter.skipTo(node.children[0].start);
         visitNodes(emitter, node.children);
         emitter.catchup(node.lastChild.end);
     }
-    emitter.insert("]");
+    emitter.insert(']');
     emitter.skipTo(node.end);
 }
 
@@ -1728,10 +1728,10 @@ export function emit(
 }
 
 function drawNode(node: Node, depth = 0): string {
-    let t = "";
+    let t = '';
 
     for (let i = 0; i < depth; i += 1) {
-        t += "  ";
+        t += '  ';
     }
 
     t += `${node.kind}:${node.text}\n`;
