@@ -159,13 +159,13 @@ function emitAssign(emitter: Emitter, node: Node) {
     }
 
     if (attributeAssign) {
-        emitter.inAssign = true;
+        emitter.inAssign += 1;
         visitNode(emitter, node.children[0]);
         emitter.skipTo(node.children[2].start);
         visitNode(emitter, node.children[2]);
         emitter.skipTo(node.end);
         emitter.insert(')');
-        emitter.inAssign = false;
+        emitter.inAssign -= 1;
     } else {
         visitNodes(emitter, node.children);
     }
@@ -257,7 +257,7 @@ export default class Emitter {
     public scope: Scope = null;
 
     public inE4X: boolean = false;
-    public inAssign: boolean = false;
+    public inAssign: number = 0;
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -1697,7 +1697,6 @@ function emitDot(emitter: Emitter, node: Node) {
 }
 
 function emitE4XAttr(emitter: Emitter, node: Node): void {
-    console.log('E4XAttr:', node.parent.kind, drawNode(node));
 }
 
 function emitE4XFilter(emitter: Emitter, node: Node): void {
@@ -1716,7 +1715,6 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     emitter.inE4X = true;
 
     visitNodes(emitter, node.children);
-    console.log('Filter:', node.parent.kind, drawNode(node));
 
     emitter.inE4X = false;
 
@@ -1747,7 +1745,6 @@ function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
 
     if (node.text[0] === '@') {
-        console.log('LITERAL:', node.text);
         emitter.insert(
             `${emitter.inAssign
                 ? 'setAttribute'
