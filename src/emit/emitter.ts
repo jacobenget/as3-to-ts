@@ -143,8 +143,33 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.E4X_ATTR]: emitE4XAttr,
     [NodeKind.E4X_FILTER]: emitE4XFilter,
     [NodeKind.E4X_STAR]: emitE4XAttr,
-    [NodeKind.E4X_AT]: emitE4XAttr
+    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
+    [NodeKind.ASSIGN]: emitAssign
 };
+
+function emitAssign(emitter: Emitter, node: Node) {
+    const kids = node.children[0].findChildren(NodeKind.LITERAL);
+    let attributeAssign = false;
+
+    for (const kid of kids) {
+        if (kid.text[0] === '@') {
+            attributeAssign = true;
+            break;
+        }
+    }
+
+    if (attributeAssign) {
+        emitter.inAssign = true;
+        visitNode(emitter, node.children[0]);
+        emitter.skipTo(node.children[2].start);
+        visitNode(emitter, node.children[2]);
+        emitter.skipTo(node.end);
+        emitter.insert(')');
+        emitter.inAssign = false;
+    } else {
+        visitNodes(emitter, node.children);
+    }
+}
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
     if (nodes) {
@@ -156,6 +181,7 @@ export function visitNode(emitter: Emitter, node: Node): void {
     if (!node) {
         return;
     }
+
 
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
@@ -231,6 +257,7 @@ export default class Emitter {
     public scope: Scope = null;
 
     public inE4X: boolean = false;
+    public inAssign: boolean = false;
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -1347,9 +1374,21 @@ function emitNew(emitter: Emitter, node: Node): void {
     emitter.emitThisForNextIdent = true;
 }
 
+function emitArrayAccessor(emitter: Emitter, node: Node) {
+    if (emitter.source[node.start - 2] === '.') {
+        emitter.catchup(node.start - 1);
+        emitter.skip(1);
+    } else {
+        emitter.catchup(node.start);
+    }
+
+    visitNodes(emitter, node.children);
+}
+
 function emitCall(emitter: Emitter, node: Node): void {
     let isNew = emitter.isNew;
     emitter.isNew = false;
+
 
     if (node.children[0].kind === NodeKind.VECTOR) {
         if (isNew) {
@@ -1379,6 +1418,7 @@ function emitCall(emitter: Emitter, node: Node): void {
         }
     } else {
         if (!isNew && isCast(emitter, node)) {
+            console.log('IS CAST');
             const type: Node = node.findChild(NodeKind.IDENTIFIER);
             const args: Node = node.findChild(NodeKind.ARGUMENTS);
             const rtype: string = emitter.getTypeRemap(type.text) || type.text;
@@ -1394,7 +1434,12 @@ function emitCall(emitter: Emitter, node: Node): void {
                 return;
             }
         } else {
-            emitter.catchup(node.start);
+            if (emitter.source[node.start - 2] === '.') {
+                emitter.catchup(node.start - 1);
+                emitter.skip(1);
+            } else {
+                emitter.catchup(node.start);
+            }
         }
     }
 
@@ -1596,7 +1641,11 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         let nodeVal = node.text;
 
         if (node.text[0] === '@') {
-            emitter.insert(`attribute('${node.text.slice(1)}')`);
+            emitter.insert(
+                `${emitter.inAssign
+                    ? 'setAttribute'
+                    : 'attribute'}('${node.text.slice(1)}')`
+            );
         } else {
             emitter.insert(node.text);
         }
@@ -1642,6 +1691,7 @@ function emitDot(emitter: Emitter, node: Node) {
     } else {
         // TODO: allow conditional compilation for function/class definitions
     }
+
 
     visitNodes(emitter, node.children);
 }
@@ -1698,7 +1748,16 @@ function emitLiteral(emitter: Emitter, node: Node): void {
 
     if (node.text[0] === '@') {
         console.log('LITERAL:', node.text);
-        emitter.insert(`attribute('${node.text.slice(1)}')`);
+        emitter.insert(
+            `${emitter.inAssign
+                ? 'setAttribute'
+                : 'attribute'}('${node.text.slice(1)}'`
+        );
+        if (emitter.inAssign) {
+            emitter.insert(', ');
+        } else {
+            emitter.insert(')');
+        }
     } else {
         emitter.insert(node.text);
     }
