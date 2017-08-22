@@ -1,58 +1,91 @@
-import NodeKind, {nodeKindName} from '../syntax/nodeKind';
-import * as Keywords from '../syntax/keywords';
-import Node, {createNode} from '../syntax/node';
-import assign = require('object-assign');
-import { CustomVisitor } from "../custom-visitors"
-import {VERBOSE, WARNINGS} from '../config';
-import * as Operators from '../syntax/operators';
+import NodeKind, { nodeKindName } from "../syntax/nodeKind";
+import * as Keywords from "../syntax/keywords";
+import Node, { createNode } from "../syntax/node";
+import assign = require("object-assign");
+import { CustomVisitor } from "../custom-visitors";
+import { VERBOSE, WARNINGS } from "../config";
+import * as Operators from "../syntax/operators";
 
-const util = require('util');
+const util = require("util");
 
 const GLOBAL_NAMES = [
-    'undefined', 'NaN', 'Infinity',
-    'Array', 'Boolean', 'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape',
-    'int', 'isFinite', 'isNaN', 'isXMLName', 'Number', 'Object',
-    'parseFloat', 'parseInt', 'String', 'trace', 'uint', 'unescape', 'Vector', 'XML', 'XMLList',
-    'arguments', 'Class', 'Date', 'Function', 'Math',
-    'Namespace', 'QName', 'RegExp', 'JSON',
-    'Error', 'EvalError', 'RangeError', 'ReferenceError',
-    'SyntaxError', 'TypeError', 'URIError',
+    "undefined",
+    "NaN",
+    "Infinity",
+    "Array",
+    "Boolean",
+    "decodeURI",
+    "decodeURIComponent",
+    "encodeURI",
+    "encodeURIComponent",
+    "escape",
+    "int",
+    "isFinite",
+    "isNaN",
+    "isXMLName",
+    "Number",
+    "Object",
+    "parseFloat",
+    "parseInt",
+    "String",
+    "trace",
+    "uint",
+    "unescape",
+    "Vector",
+    "XML",
+    "XMLList",
+    "arguments",
+    "Class",
+    "Date",
+    "Function",
+    "Math",
+    "Namespace",
+    "QName",
+    "RegExp",
+    "JSON",
+    "Error",
+    "EvalError",
+    "RangeError",
+    "ReferenceError",
+    "SyntaxError",
+    "TypeError",
+    "URIError"
 ];
 
 const TYPE_REMAP: { [id: string]: string } = {
-    'Class': 'any', // 80pro: was mapped to 'Object' before
-    'Object': 'any',
-    'String': 'string',
-    'Boolean': 'boolean',
-    'Number': 'number',
-    'int': 'number',
-    'uint': 'number',
-    '*': 'any',
-    'Array': 'any[]',
-    'Dictionary': 'Object',// 80pro: was mapped to 'Map<any, any>' before
+    Class: "any", // 80pro: was mapped to 'Object' before
+    Object: "any",
+    String: "string",
+    Boolean: "boolean",
+    Number: "number",
+    int: "number",
+    uint: "number",
+    "*": "any",
+    Array: "any[]",
+    Dictionary: "Object", // 80pro: was mapped to 'Map<any, any>' before
 
     // Inexistent errors
-    'ArgumentError': 'Error',
-    'DefinitionError': 'Error',
-    'SecurityError': 'Error',
-    'VerifyError': 'Error'
-}
+    ArgumentError: "Error",
+    DefinitionError: "Error",
+    SecurityError: "Error",
+    VerifyError: "Error"
+};
 
 // TODO: improve me (used only on emitType())
-const TYPE_REMAP_VALUES = ['void'];
+const TYPE_REMAP_VALUES = ["void"];
 for (var k in TYPE_REMAP) {
     TYPE_REMAP_VALUES.push(TYPE_REMAP[k]);
 }
 
 const IDENTIFIER_REMAP: { [id: string]: string } = {
-    'Dictionary': 'Map<any, any>',
+    Dictionary: "Map<any, any>",
 
     // Inexistent errors
-    'ArgumentError': 'Error',
-    'DefinitionError': 'Error',
-    'SecurityError': 'Error',
-    'VerifyError': 'Error'
-}
+    ArgumentError: "Error",
+    DefinitionError: "Error",
+    SecurityError: "Error",
+    VerifyError: "Error"
+};
 
 interface Scope {
     parent: Scope;
@@ -60,28 +93,24 @@ interface Scope {
     className?: string;
 }
 
-
 interface Declaration {
     name: string;
     type?: string;
     bound?: string;
 }
 
-
 export interface EmitterOptions {
     lineSeparator: string;
     useNamespaces: boolean;
     customVisitors: CustomVisitor[];
-    definitionsByNamespace?: {[ns: string]: string[]};
+    definitionsByNamespace?: { [ns: string]: string[] };
 }
-
 
 interface NodeVisitor {
     (emitter: Emitter, node: Node): void;
 }
 
-
-const VISITORS: {[kind: number]: NodeVisitor} = {
+const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.PACKAGE]: emitPackage,
     [NodeKind.META]: emitMeta,
     [NodeKind.IMPORT]: emitImport,
@@ -109,9 +138,12 @@ const VISITORS: {[kind: number]: NodeVisitor} = {
     [NodeKind.VALUE]: emitObjectValue,
     [NodeKind.DOT]: emitDot,
     [NodeKind.LITERAL]: emitLiteral,
-    [NodeKind.ARRAY]: emitArray
+    [NodeKind.ARRAY]: emitArray,
+    [NodeKind.E4X_ATTR]: emitE4XAttr,
+    [NodeKind.E4X_FILTER]: emitE4XFilter,
+    [NodeKind.E4X_STAR]: emitE4XAttr,
+    [NodeKind.E4X_AT]: emitE4XAttr
 };
-
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
     if (nodes) {
@@ -119,63 +151,70 @@ export function visitNodes(emitter: Emitter, nodes: Node[]): void {
     }
 }
 
-
 export function visitNode(emitter: Emitter, node: Node): void {
-
     if (!node) {
         return;
     }
 
     // use custom visitor. allow custom node manipulation
-    for (let i=0, l = emitter.options.customVisitors.length; i < l; i++) {
+    for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
         let customVisitor = emitter.options.customVisitors[i];
         if (customVisitor.visit(emitter, node) === true) {
             return;
         }
     }
 
-    let visitor = VISITORS[node.kind] || function (emitter: Emitter, node: Node): void {
-        emitter.catchup(node.start);
-        visitNodes(emitter, node.children);
-    };
+    let visitor =
+        VISITORS[node.kind] ||
+        function(emitter: Emitter, node: Node): void {
+            emitter.catchup(node.start);
+            visitNodes(emitter, node.children);
+        };
 
-    if(VERBOSE >= 2 && VISITORS[node.kind]) {
-        console.log("visit:" + VISITORS[node.kind].name + "() <=====================================");
+    if (VERBOSE >= 2 && VISITORS[node.kind]) {
+        console.log(
+            "visit:" +
+                VISITORS[node.kind].name +
+                "() <====================================="
+        );
         console.log("node: " + node.toString());
     }
     visitor(emitter, node);
 }
 
 function filterAST(node: Node): Node {
-
     function isInteresting(child: Node): boolean {
         // we don't care about comment
-        return !!child && child.kind !== NodeKind.AS_DOC && child.kind !== NodeKind.MULTI_LINE_COMMENT;
+        return (
+            !!child &&
+            child.kind !== NodeKind.AS_DOC &&
+            child.kind !== NodeKind.MULTI_LINE_COMMENT
+        );
     }
 
     let newNode = createNode(
         node.kind,
         node,
-        ... node.children.filter(isInteresting).map(filterAST));
+        ...node.children.filter(isInteresting).map(filterAST)
+    );
 
-    newNode.children.forEach(child => child.parent = newNode);
+    newNode.children.forEach(child => (child.parent = newNode));
 
     return newNode;
 }
 
 export class ImportStatement {
-    public constructor(public identifier: string, public source: string) {
-    }
+    public constructor(public identifier: string, public source: string) {}
 }
 
 export default class Emitter {
     public isNew: boolean = false;
 
     private _emitThisForNextIdent: boolean = true;
-    get emitThisForNextIdent():boolean {
+    get emitThisForNextIdent(): boolean {
         return this._emitThisForNextIdent;
     }
-    set emitThisForNextIdent(val:boolean) {
+    set emitThisForNextIdent(val: boolean) {
         this._emitThisForNextIdent = val;
     }
 
@@ -184,29 +223,33 @@ export default class Emitter {
 
     public extraImportsNeeded: ImportStatement[] = [];
 
-    public output: string = '';
+    public output: string = "";
     public index: number = 0;
 
     public rootScope: Scope = null;
     public scope: Scope = null;
 
+    public inE4X: boolean = false;
+
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
-        this.options = assign({
-            includePath: "",
-            lineSeparator: '\n',
-            useNamespaces: false,
-            customVisitors: []
-        }, options || {});
+        this.options = assign(
+            {
+                includePath: "",
+                lineSeparator: "\n",
+                useNamespaces: false,
+                customVisitors: []
+            },
+            options || {}
+        );
     }
 
     emit(ast: Node): string {
-
-        if(VERBOSE >= 1) {
+        if (VERBOSE >= 1) {
             console.log("emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑");
         }
 
-        this.withScope([], (rootScope) => {
+        this.withScope([], rootScope => {
             this.rootScope = rootScope;
             visitNode(this, filterAST(ast));
             this.catchup(this.source.length - 1);
@@ -220,29 +263,29 @@ export default class Emitter {
             }
         });
 
-        let headOutput = 
-            this.extraImportsNeeded.map(extraImportsNeeded => {
-                return `import { ${ extraImportsNeeded.identifier } } from "${ extraImportsNeeded.source }";`;
+        let headOutput = this.extraImportsNeeded
+            .map(extraImportsNeeded => {
+                return `import { ${extraImportsNeeded.identifier} } from "${extraImportsNeeded.source}";`;
             })
-            .join('\n');
+            .join("\n");
 
         if (headOutput.length > 0) {
-            headOutput += '\n';
+            headOutput += "\n";
         }
 
         return headOutput + this.output;
     }
 
     enterScope(declarations: Declaration[]): Scope {
-        return this.scope = {parent: this.scope, declarations};
+        return (this.scope = { parent: this.scope, declarations });
     }
 
     exitScope(checkScope: Scope = null): void {
         if (checkScope && this.scope !== checkScope) {
-            throw new Error('Mismatched enterScope() / exitScope().');
+            throw new Error("Mismatched enterScope() / exitScope().");
         }
         if (!this.scope) {
-            throw new Error('Unmatched exitScope().');
+            throw new Error("Unmatched exitScope().");
         }
         this.scope = this.scope.parent;
     }
@@ -274,8 +317,10 @@ export default class Emitter {
         }
 
         if (previousDeclaration) {
-            if (declaration.type !== undefined) previousDeclaration.type = declaration.type;
-            if (declaration.bound !== undefined) previousDeclaration.bound = declaration.bound;
+            if (declaration.type !== undefined)
+                previousDeclaration.type = declaration.type;
+            if (declaration.bound !== undefined)
+                previousDeclaration.bound = declaration.bound;
         } else {
             this.scope.declarations.push(declaration);
         }
@@ -295,8 +340,11 @@ export default class Emitter {
     }
 
     commentNode(node: Node, catchSemi: boolean): void {
-        this.insert('/*');
-        const source = this.sourceBetween(this.index, node.end).replace(/\*\//g, '');
+        this.insert("/*");
+        const source = this.sourceBetween(this.index, node.end).replace(
+            /\*\//g,
+            ""
+        );
         this.insert(source);
         this.skipTo(node.end);
 
@@ -306,18 +354,18 @@ export default class Emitter {
                 if (index >= this.source.length) {
                     break;
                 }
-                if (this.source[index] === '\n') {
+                if (this.source[index] === "\n") {
                     this.catchup(index);
                     break;
                 }
-                if (this.source[index] === ';') {
+                if (this.source[index] === ";") {
                     this.catchup(index + 1);
                     break;
                 }
                 index++;
             }
         }
-        this.insert('*/');
+        this.insert("*/");
     }
 
     catchup(index: number): void {
@@ -329,7 +377,7 @@ export default class Emitter {
         this.insert(text);
     }
 
-    sourceBetween (start: number, end: number) {
+    sourceBetween(start: number, end: number) {
         return this.source.substring(start, end);
     }
 
@@ -350,7 +398,7 @@ export default class Emitter {
         // console.log("    emitter.ts - output += " + lastWord);
         // process.stdout.write(" " + lastWord);
         // console.log("+++++++++ " + (string.indexOf("for(") !== -1));
-        if(VERBOSE >= 2 ) {
+        if (VERBOSE >= 2) {
             console.log("output (all): " + this.output);
             // let a = 1; // insert breakpoint here
         }
@@ -359,7 +407,7 @@ export default class Emitter {
     consume(string: string, limit: number): void {
         let index = this.source.indexOf(string, this.index) + string.length;
         if (index > limit || index < this.index) {
-            throw new Error('invalid consume');
+            throw new Error("invalid consume");
         }
         this.index = index;
     }
@@ -367,11 +415,16 @@ export default class Emitter {
     /**
      * Utilities
      */
-    ensureImportIdentifier (identifier: string, from = `./${identifier}`, checkGlobals: boolean = true): void {
-
+    ensureImportIdentifier(
+        identifier: string,
+        from = `./${identifier}`,
+        checkGlobals: boolean = true
+    ): void {
         // warning if this is a as3-path, not a plain name (like shared.Node should error)
-        if(WARNINGS>=1 && identifier.split(".").length>1){
-            console.log(`emitter.ts: *** MAJOR WARNING *** ensureImportIdentifier() => : invalid object name identifier: ${ identifier }`)
+        if (WARNINGS >= 1 && identifier.split(".").length > 1) {
+            console.log(
+                `emitter.ts: *** MAJOR WARNING *** ensureImportIdentifier() => : invalid object name identifier: ${identifier}`
+            );
         }
 
         let isGloballyAvailable = checkGlobals
@@ -384,7 +437,8 @@ export default class Emitter {
 
         // Ensure this file is not declaring this class
         if (
-            new RegExp(`class\\s+${ identifier }\\s`).test(this.source) === false &&
+            new RegExp(`class\\s+${identifier}\\s`).test(this.source) ===
+                false &&
             !isGloballyAvailable &&
             !this.findDefInScope(identifier)
         ) {
@@ -397,41 +451,42 @@ export default class Emitter {
     }
 
     getTypeRemap(text: string): string {
-        for (let i=0, l=this.options.customVisitors.length; i < l; i++) {
+        for (let i = 0, l = this.options.customVisitors.length; i < l; i++) {
             let customVisitor = this.options.customVisitors[i];
-            if (customVisitor.typeMap && customVisitor.typeMap[ text ]) {
-                return customVisitor.typeMap[ text ];
+            if (customVisitor.typeMap && customVisitor.typeMap[text]) {
+                return customVisitor.typeMap[text];
             }
         }
         return TYPE_REMAP[text];
     }
 
     getIdentifierRemap(text: string): string {
-        for (let i=0, l=this.options.customVisitors.length; i < l; i++) {
+        for (let i = 0, l = this.options.customVisitors.length; i < l; i++) {
             let customVisitor = this.options.customVisitors[i];
-            if (customVisitor.identifierMap && customVisitor.identifierMap[ text ]) {
-                return customVisitor.identifierMap[ text ];
+            if (
+                customVisitor.identifierMap &&
+                customVisitor.identifierMap[text]
+            ) {
+                return customVisitor.identifierMap[text];
             }
         }
         return IDENTIFIER_REMAP[text];
     }
-
 }
-
 
 function emitPackage(emitter: Emitter, node: Node): void {
     if (emitter.options.useNamespaces) {
         emitter.catchup(node.start);
         emitter.skip(Keywords.PACKAGE.length);
-        emitter.insert('namespace');
+        emitter.insert("namespace");
         visitNodes(emitter, node.children);
-
     } else {
-
         emitter.catchup(node.start);
 
         // skip to just past the opening left curly bracket
-        emitter.skipTo(emitter.source.indexOf(Operators.LEFT_CURLY_BRACKET, node.start) + 1);
+        emitter.skipTo(
+            emitter.source.indexOf(Operators.LEFT_CURLY_BRACKET, node.start) + 1
+        );
 
         let indexBeforePackageContents = emitter.output.length;
 
@@ -443,36 +498,51 @@ function emitPackage(emitter: Emitter, node: Node): void {
         // physically remove any addition indentation this package scope introduced
 
         // pull out all lines added by visiting the package contents
-        let linesInPackageContents = emitter.output.substring(indexBeforePackageContents).split('\n');
+        let linesInPackageContents = emitter.output
+            .substring(indexBeforePackageContents)
+            .split("\n");
 
         // ignore the first line, which is the line that contains the package's left curly bracket, and should just contain whitespace
         let lineContainingLeftCurlyBracket = linesInPackageContents[0];
         linesInPackageContents.shift();
 
-        let linesBeginningWithExportModifer = linesInPackageContents.filter(line => /^\s*export/.test(line));
+        let linesBeginningWithExportModifer = linesInPackageContents.filter(
+            line => /^\s*export/.test(line)
+        );
 
         if (!/^\s*$/.test(lineContainingLeftCurlyBracket)) {
-            if(WARNINGS >= 1) {
-                console.log(`emitter.ts: *** MINOR WARNING *** emitPackage() => : package open curly bracket isn't only followed by whitespace, which is unexpected. Result: package indentation not corrected`);
+            if (WARNINGS >= 1) {
+                console.log(
+                    `emitter.ts: *** MINOR WARNING *** emitPackage() => : package open curly bracket isn't only followed by whitespace, which is unexpected. Result: package indentation not corrected`
+                );
             }
         } else if (linesBeginningWithExportModifer.length == 0) {
-            if(WARNINGS >= 1) {
-                console.log(`emitter.ts: *** MINOR WARNING *** emitPackage() => : no lines in the package definition begin with 'export', which is unexpected. Result: package indentation not corrected`)
+            if (WARNINGS >= 1) {
+                console.log(
+                    `emitter.ts: *** MINOR WARNING *** emitPackage() => : no lines in the package definition begin with 'export', which is unexpected. Result: package indentation not corrected`
+                );
             }
         } else {
             // and remove the leading whitespace from all lines
-            let leftPaddingToRemove = linesBeginningWithExportModifer[0].match(/^(\s*)export/)[1];
-            let regexMatchingLeftPadding = RegExp('^' + leftPaddingToRemove);
-            let linesWithLeftPaddingRemoved = linesInPackageContents.map(line => line.replace(regexMatchingLeftPadding, ""));
-            let adjustedLinesInPackageContents = linesWithLeftPaddingRemoved.join('\n');
-            emitter.output = emitter.output.substring(0, indexBeforePackageContents) + adjustedLinesInPackageContents;
+            let leftPaddingToRemove = linesBeginningWithExportModifer[0].match(
+                /^(\s*)export/
+            )[1];
+            let regexMatchingLeftPadding = RegExp("^" + leftPaddingToRemove);
+            let linesWithLeftPaddingRemoved = linesInPackageContents.map(line =>
+                line.replace(regexMatchingLeftPadding, "")
+            );
+            let adjustedLinesInPackageContents = linesWithLeftPaddingRemoved.join(
+                "\n"
+            );
+            emitter.output =
+                emitter.output.substring(0, indexBeforePackageContents) +
+                adjustedLinesInPackageContents;
         }
 
-        emitter.catchup(node.end - 1);  // catchup to *just* before the closing bracket of the package declaration
-        emitter.skip(1);    // skip the closing bracket
+        emitter.catchup(node.end - 1); // catchup to *just* before the closing bracket of the package declaration
+        emitter.skip(1); // skip the closing bracket
     }
 }
-
 
 function emitMeta(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
@@ -489,21 +559,27 @@ function emitMeta(emitter: Emitter, node: Node): void {
         let startInOutput = emitter.output.lastIndexOf(metaToComment);
         if (startInOutput === -1) {
             if (WARNINGS >= 1) {
-                console.log(`emitter.ts: *** MAJOR WARNING *** emitMeta() => : attempted to comment metadata '${ metaToComment }' but emitter has already emitted output past this point, and this text in metadata in question doesn't already appear in the output.  No idea what could cause this`);
+                console.log(
+                    `emitter.ts: *** MAJOR WARNING *** emitMeta() => : attempted to comment metadata '${metaToComment}' but emitter has already emitted output past this point, and this text in metadata in question doesn't already appear in the output.  No idea what could cause this`
+                );
             }
         } else {
-            emitter.output = emitter.output.slice(0, startInOutput) + '/*' + metaToComment + '*/' + emitter.output.slice(startInOutput + metaToComment.length);
+            emitter.output =
+                emitter.output.slice(0, startInOutput) +
+                "/*" +
+                metaToComment +
+                "*/" +
+                emitter.output.slice(startInOutput + metaToComment.length);
         }
     }
 }
 
-
-function emitUse(emitter: Emitter, node: Node): void  {
+function emitUse(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     emitter.commentNode(node, false);
 }
 
-function emitEmbed(emitter: Emitter, node: Node): void  {
+function emitEmbed(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     emitter.commentNode(node, false);
 }
@@ -514,31 +590,32 @@ function emitImport(emitter: Emitter, node: Node): void {
     // emit one import statement for each definition found in that namespace
     if (node.text.indexOf("*") !== -1) {
         let ns = node.text.substring(0, node.text.length - 2);
-        let definitions = emitter.options.definitionsByNamespace[ ns ];
+        let definitions = emitter.options.definitionsByNamespace[ns];
 
         let skipTo = node.end;
 
         if (definitions && definitions.length > 0) {
-            emitter.catchup(node.start);    // to ensure that left padding on the '*' import is correctly recognized and duplicated across all generated imports below
-            let leftPadding = /[ \t]*$/.exec(emitter.output)[0];    // all trailing whitespace
+            emitter.catchup(node.start); // to ensure that left padding on the '*' import is correctly recognized and duplicated across all generated imports below
+            let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
 
             definitions.forEach(definition => {
                 let importNode = createNode(node.kind, node);
-                importNode.text = `${ ns }.${ definition }`;
+                importNode.text = `${ns}.${definition}`;
                 importNode.parent = node.parent;
                 emitImport(emitter, importNode);
                 emitter.insert(";\n" + leftPadding);
-            })
+            });
 
             skipTo = node.end + Keywords.IMPORT.length + 2;
-
         } else {
             emitter.catchup(node.start);
             node.end += node.text.length - ns.length + 6;
             emitter.commentNode(node, true);
             skipTo = node.end;
-            if(WARNINGS >= 1) {
-                console.log(`emitter.ts: *** MINOR WARNING *** emitImport() => : nothing found to import on namespace ${ ns }. (import ${ node.text })`)
+            if (WARNINGS >= 1) {
+                console.log(
+                    `emitter.ts: *** MINOR WARNING *** emitImport() => : nothing found to import on namespace ${ns}. (import ${node.text})`
+                );
             }
         }
 
@@ -550,7 +627,7 @@ function emitImport(emitter: Emitter, node: Node): void {
     let hasCustomVisitor = false;
 
     // apply custom visitor import maps
-    for (let i=0, l = emitter.options.customVisitors.length; i < l; i++) {
+    for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
         let customVisitor = emitter.options.customVisitors[i];
         if (customVisitor.imports) {
             hasCustomVisitor = true;
@@ -572,9 +649,9 @@ function emitImport(emitter: Emitter, node: Node): void {
         emitter.catchup(node.start);
         emitter.insert(statement);
 
-        let split = node.text.split('.');
+        let split = node.text.split(".");
         let name = split[split.length - 1];
-        emitter.insert(name + ' = ');
+        emitter.insert(name + " = ");
 
         // apply custom visitor translation
         if (hasCustomVisitor) {
@@ -582,15 +659,12 @@ function emitImport(emitter: Emitter, node: Node): void {
 
             emitter.insert(text);
             emitter.skip(text.length + diff + statement.length);
-
         } else {
             emitter.catchup(node.end + statement.length);
         }
 
-        emitter.declareInScope({name});
-
+        emitter.declareInScope({ name });
     } else {
-
         emitter.catchup(node.start);
         emitter.insert(Keywords.IMPORT + " ");
 
@@ -609,38 +683,37 @@ function emitImport(emitter: Emitter, node: Node): void {
         }
 
         // const importPath = getRelativePath(currentModule.split("."), text.split("."));
-        const importPath = text.replace(/\./g, '/');
+        const importPath = text.replace(/\./g, "/");
         let isDup = false;
-	
+
         if (emitter.source.search(new RegExp(`class\\s+${name}\\b`)) >= 0) {
             isDup = true;
         }
 
         if (isDup) {
-            text = `{ ${ name } as dup_${name} } from "${ importPath }"`;
+            text = `{ ${name} as dup_${name} } from "${importPath}"`;
         } else {
-            text = `{ ${ name } } from "${ importPath }"`;
+            text = `{ ${name} } from "${importPath}"`;
         }
         emitter.insert(text);
         emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
-        emitter.declareInScope({name});
+        emitter.declareInScope({ name });
     }
 }
 
-function getRelativePath (currentPath: string[], targetPath: string[]) {
+function getRelativePath(currentPath: string[], targetPath: string[]) {
     while (currentPath.length > 0 && targetPath[0] === currentPath[0]) {
         currentPath.shift();
         targetPath.shift();
     }
 
-    let relative = (currentPath.length === 0)
-        ? "."
-        : currentPath.map(() => "..").join("/");
+    let relative =
+        currentPath.length === 0 ? "." : currentPath.map(() => "..").join("/");
 
-    return `${ relative }/${ targetPath.join("/") }`;
+    return `${relative}/${targetPath.join("/")}`;
 }
 
-function getDeclarationType (emitter: Emitter, node: Node): string {
+function getDeclarationType(emitter: Emitter, node: Node): string {
     let declarationType: string = null;
     let typeNode = node && node.findChild(NodeKind.TYPE);
 
@@ -678,8 +751,10 @@ function emitInterface(emitter: Emitter, node: Node): void {
                 emitter.skip(Keywords.FUNCTION.length + 1);
                 visitNode(emitter, node.findChild(NodeKind.PARAMETER_LIST));
                 visitNode(emitter, type);
-
-            } else if (node.kind === NodeKind.GET || node.kind === NodeKind.SET) {
+            } else if (
+                node.kind === NodeKind.GET ||
+                node.kind === NodeKind.SET
+            ) {
                 let name = node.findChild(NodeKind.NAME);
                 let parameterList = node.findChild(NodeKind.PARAMETER_LIST);
                 if (!foundVariables[name.text]) {
@@ -692,22 +767,25 @@ function emitInterface(emitter: Emitter, node: Node): void {
                         if (type) {
                             emitType(emitter, type);
                         }
-
                     } else if (node.kind === NodeKind.SET) {
-                        let parameterNode = parameterList.findChild(NodeKind.PARAMETER);
-                        let nameTypeInit = parameterNode.findChild(NodeKind.NAME_TYPE_INIT);
-                        emitter.skipTo(nameTypeInit.findChild(NodeKind.NAME).end);
+                        let parameterNode = parameterList.findChild(
+                            NodeKind.PARAMETER
+                        );
+                        let nameTypeInit = parameterNode.findChild(
+                            NodeKind.NAME_TYPE_INIT
+                        );
+                        emitter.skipTo(
+                            nameTypeInit.findChild(NodeKind.NAME).end
+                        );
                         type = nameTypeInit.findChild(NodeKind.TYPE);
                         if (type) {
                             emitType(emitter, type);
                         }
                         emitter.skipTo(node.end);
                     }
-
                 } else {
                     emitter.commentNode(node, true);
                 }
-
             } else {
                 //include or import in interface content not supported
                 emitter.commentNode(node, true);
@@ -715,7 +793,6 @@ function emitInterface(emitter: Emitter, node: Node): void {
         });
     }
 }
-
 
 function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     let decls: Declaration[] = [];
@@ -730,23 +807,36 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
                 };
             }
             let rest = param.findChild(NodeKind.REST);
-            return {name: rest.text};
+            return { name: rest.text };
         });
     }
     let block = node.findChild(NodeKind.BLOCK);
     if (block) {
         function traverse(node: Node): Declaration[] {
             let result: Declaration[] = [];
-            if (node.kind === NodeKind.VAR_LIST || node.kind === NodeKind.CONST_LIST ||
-                    node.kind === NodeKind.VAR || node.kind === NodeKind.CONST) {
+            if (
+                node.kind === NodeKind.VAR_LIST ||
+                node.kind === NodeKind.CONST_LIST ||
+                node.kind === NodeKind.VAR ||
+                node.kind === NodeKind.CONST
+            ) {
                 result = result.concat(
                     node
                         .findChildren(NodeKind.NAME_TYPE_INIT)
-                        .map(node => ({name: node.findChild(NodeKind.NAME).text}))
+                        .map(node => ({
+                            name: node.findChild(NodeKind.NAME).text
+                        }))
                 );
             }
-            if (node.kind !== NodeKind.FUNCTION && node.children && node.children.length) {
-                result = Array.prototype.concat.apply(result, node.children.map(traverse));
+            if (
+                node.kind !== NodeKind.FUNCTION &&
+                node.children &&
+                node.children.length
+            ) {
+                result = Array.prototype.concat.apply(
+                    result,
+                    node.children.map(traverse)
+                );
             }
             return result.filter(decl => !!decl);
         }
@@ -755,7 +845,6 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     }
     return decls;
 }
-
 
 function emitFunction(emitter: Emitter, node: Node): void {
     emitDeclaration(emitter, node);
@@ -775,22 +864,24 @@ function emitForIn(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if(typeNode) {
+        if (typeNode) {
             emitter.catchup(node.start);
-            let typeRemapped = emitter.getTypeRemap(typeNode.text) || typeNode.text;
-            emitter.insert(`let ${ nameNode.text }:${ typeRemapped };\n`);
-        }
-        else {
+            let typeRemapped =
+                emitter.getTypeRemap(typeNode.text) || typeNode.text;
+            emitter.insert(`let ${nameNode.text}:${typeRemapped};\n`);
+        } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
-            if(vecNode) {
+            if (vecNode) {
                 if (WARNINGS >= 1) {
-                    console.log("emitter.ts: *** WARNING *** for iterators of type vector not supported. Please declare iterator outside of the for's header");
+                    console.log(
+                        "emitter.ts: *** WARNING *** for iterators of type vector not supported. Please declare iterator outside of the for's header"
+                    );
                 }
             }
         }
         emitter.catchup(node.start + Keywords.FOR.length + 1);
         emitter.catchup(varNode.start);
-        emitter.insert(`${ nameNode.text }`);
+        emitter.insert(`${nameNode.text}`);
         emitter.skipTo(varNode.end);
     } else {
         emitter.catchup(node.start + Keywords.FOR.length + 1);
@@ -799,7 +890,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
 
     emitter.catchup(inNode.start);
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
-    emitter.insert('of ');
+    emitter.insert("of ");
 
     visitNodes(emitter, inNode.children);
     visitNode(emitter, blockNode);
@@ -814,24 +905,28 @@ function emitForEach(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if(typeNode) {
+        if (typeNode) {
             emitter.catchup(node.start);
-            let typeRemapped = emitter.getTypeRemap(typeNode.text) || typeNode.text;
-            let leftPadding = /[ \t]*$/.exec(emitter.output)[0];    // all trailing whitespace
-            emitter.insert(`let ${ nameNode.text }:${ typeRemapped };\n${leftPadding}`);
-        }
-        else {
+            let typeRemapped =
+                emitter.getTypeRemap(typeNode.text) || typeNode.text;
+            let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
+            emitter.insert(
+                `let ${nameNode.text}:${typeRemapped};\n${leftPadding}`
+            );
+        } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
-            if(vecNode) {
+            if (vecNode) {
                 if (WARNINGS >= 1) {
-                    console.log("emitter.ts: *** WARNING *** for iterators of type vector not supported. Please declare iterator outside of the for's header");
+                    console.log(
+                        "emitter.ts: *** WARNING *** for iterators of type vector not supported. Please declare iterator outside of the for's header"
+                    );
                 }
             }
         }
         emitter.catchup(node.start + Keywords.FOR.length);
         emitter.consume("each", varNode.start);
         emitter.catchup(varNode.start);
-        emitter.insert(`${ nameNode.text }`);
+        emitter.insert(`${nameNode.text}`);
         emitter.skipTo(varNode.end);
     } else {
         emitter.catchup(node.start + Keywords.FOR.length);
@@ -841,50 +936,60 @@ function emitForEach(emitter: Emitter, node: Node): void {
 
     emitter.catchup(inNode.start);
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
-    emitter.insert('of ');
+    emitter.insert("of ");
 
     visitNodes(emitter, inNode.children);
     visitNode(emitter, blockNode);
 }
 
-
-function getClassDeclarations(emitter: Emitter, className: string, contentsNode: Node[]): Declaration[] {
+function getClassDeclarations(
+    emitter: Emitter,
+    className: string,
+    contentsNode: Node[]
+): Declaration[] {
     let found: { [name: string]: boolean } = {};
 
-    return contentsNode.map(node => {
-        let nameNode: Node;
+    return contentsNode
+        .map(node => {
+            let nameNode: Node;
 
-        switch (node.kind) {
-            case NodeKind.SET:
-            case NodeKind.GET:
-            case NodeKind.FUNCTION:
-                nameNode = node.findChild(NodeKind.NAME);
-                break;
-            case NodeKind.VAR_LIST:
-            case NodeKind.CONST_LIST:
-                nameNode = node.findChild(NodeKind.NAME_TYPE_INIT).findChild(NodeKind.NAME);
-                break;
-            default:
-                break;
-        }
-        if (!nameNode || found[nameNode.text]) {
-            return null;
-        }
-        found[nameNode.text] = true;
-        if (nameNode.text === className) {
-            return;
-        }
+            switch (node.kind) {
+                case NodeKind.SET:
+                case NodeKind.GET:
+                case NodeKind.FUNCTION:
+                    nameNode = node.findChild(NodeKind.NAME);
+                    break;
+                case NodeKind.VAR_LIST:
+                case NodeKind.CONST_LIST:
+                    nameNode = node
+                        .findChild(NodeKind.NAME_TYPE_INIT)
+                        .findChild(NodeKind.NAME);
+                    break;
+                default:
+                    break;
+            }
+            if (!nameNode || found[nameNode.text]) {
+                return null;
+            }
+            found[nameNode.text] = true;
+            if (nameNode.text === className) {
+                return;
+            }
 
-        let modList = node.findChild(NodeKind.MOD_LIST);
-        let isStatic = modList && modList.children.some(mod => mod.text === 'static');
-        return {
-            name: nameNode.text,
-            type: getDeclarationType(emitter, node.findChild(NodeKind.NAME_TYPE_INIT)),
-            bound: isStatic ? className : 'this'
-        };
-    }).filter(el => !!el);
+            let modList = node.findChild(NodeKind.MOD_LIST);
+            let isStatic =
+                modList && modList.children.some(mod => mod.text === "static");
+            return {
+                name: nameNode.text,
+                type: getDeclarationType(
+                    emitter,
+                    node.findChild(NodeKind.NAME_TYPE_INIT)
+                ),
+                bound: isStatic ? className : "this"
+            };
+        })
+        .filter(el => !!el);
 }
-
 
 function emitClass(emitter: Emitter, node: Node): void {
     emitDeclaration(emitter, node);
@@ -913,34 +1018,39 @@ function emitClass(emitter: Emitter, node: Node): void {
     // ensure implements identifiers are being imported
     let implementsNode = node.findChild(NodeKind.IMPLEMENTS_LIST);
     if (implementsNode) {
-        implementsNode.children.forEach((node) => emitter.ensureImportIdentifier(node.text))
+        implementsNode.children.forEach(node =>
+            emitter.ensureImportIdentifier(node.text)
+        );
     }
 
-    emitter.withScope(getClassDeclarations(emitter, name.text, contentsNode), scope => {
-        scope.className = name.text;
+    emitter.withScope(
+        getClassDeclarations(emitter, name.text, contentsNode),
+        scope => {
+            scope.className = name.text;
 
-        contentsNode.forEach(node => {
-            visitNode(emitter, node.findChild(NodeKind.META_LIST));
-            emitter.catchup(node.start);
-            switch (node.kind) {
-                case NodeKind.SET:
-                    emitSet(emitter, node);
-                    break;
-                case NodeKind.GET:
-                case NodeKind.FUNCTION:
-                    emitMethod(emitter, node);
-                    break;
-                case NodeKind.VAR_LIST:
-                    emitPropertyDecl(emitter, node);
-                    break;
-                case NodeKind.CONST_LIST:
-                    emitPropertyDecl(emitter, node, true);
-                    break;
-                default:
-                    visitNode(emitter, node);
-            }
-        });
-    });
+            contentsNode.forEach(node => {
+                visitNode(emitter, node.findChild(NodeKind.META_LIST));
+                emitter.catchup(node.start);
+                switch (node.kind) {
+                    case NodeKind.SET:
+                        emitSet(emitter, node);
+                        break;
+                    case NodeKind.GET:
+                    case NodeKind.FUNCTION:
+                        emitMethod(emitter, node);
+                        break;
+                    case NodeKind.VAR_LIST:
+                        emitPropertyDecl(emitter, node);
+                        break;
+                    case NodeKind.CONST_LIST:
+                        emitPropertyDecl(emitter, node, true);
+                        break;
+                    default:
+                        visitNode(emitter, node);
+                }
+            });
+        }
+    );
 
     emitter.catchup(node.end);
 }
@@ -949,7 +1059,7 @@ function emitSet(emitter: Emitter, node: Node): void {
     emitClassField(emitter, node);
 
     let name = node.findChild(NodeKind.NAME);
-    emitter.consume('function', name.start);
+    emitter.consume("function", name.start);
 
     let params = node.findChild(NodeKind.PARAMETER_LIST);
     visitNode(emitter, params);
@@ -965,12 +1075,11 @@ function emitSet(emitter: Emitter, node: Node): void {
     });
 }
 
-
 function emitConstList(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     let nameTypeInit = node.findChild(NodeKind.NAME_TYPE_INIT);
     emitter.skipTo(nameTypeInit.start);
-    emitter.insert('const ');
+    emitter.insert("const ");
     visitNode(emitter, nameTypeInit);
 }
 
@@ -989,16 +1098,19 @@ function emitNameTypeInit(emitter: Emitter, node: Node): void {
 
 function emitMethod(emitter: Emitter, node: Node): void {
     let name = node.findChild(NodeKind.NAME);
-    if (node.kind !== NodeKind.FUNCTION || name.text !== emitter.currentClassName) {
+    if (
+        node.kind !== NodeKind.FUNCTION ||
+        name.text !== emitter.currentClassName
+    ) {
         emitClassField(emitter, node);
-        emitter.consume('function', name.start);
+        emitter.consume("function", name.start);
         emitter.catchup(name.end);
     } else {
         let mods = node.findChild(NodeKind.MOD_LIST);
         if (mods) {
             emitter.catchup(mods.start);
         }
-        emitter.insert('constructor');
+        emitter.insert("constructor");
         emitter.skipTo(name.end);
 
         // // find "super" on constructor and move it to the beginning of the
@@ -1022,13 +1134,13 @@ function emitMethod(emitter: Emitter, node: Node): void {
         //     })
         //     console.log("super index:", superIndex)
         // }
-
     }
 
-    const regex = new RegExp(String.raw`set +${node.text}\b.*\(.*:\s*(\S+)\s*\)`);
+    const regex = new RegExp(
+        String.raw`set +${node.text}\b.*\(.*:\s*(\S+)\s*\)`
+    );
 
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
-
         if (node.kind === NodeKind.GET) {
             const m = emitter.source.match(regex);
             if (m) {
@@ -1039,18 +1151,19 @@ function emitMethod(emitter: Emitter, node: Node): void {
     });
 }
 
-
 function emitPropertyDecl(emitter: Emitter, node: Node, isConst = false): void {
     emitClassField(emitter, node);
-    let names = node.findChildren(NodeKind.NAME_TYPE_INIT)
+    let names = node.findChildren(NodeKind.NAME_TYPE_INIT);
     names.forEach((name, i) => {
-        if (i===0) {
-            emitter.consume(isConst ? Keywords.CONST : Keywords.VAR, name.start);
+        if (i === 0) {
+            emitter.consume(
+                isConst ? Keywords.CONST : Keywords.VAR,
+                name.start
+            );
         }
         visitNode(emitter, name);
-    })
+    });
 }
-
 
 function emitClassField(emitter: Emitter, node: Node): void {
     let mods = node.findChild(NodeKind.MOD_LIST);
@@ -1058,17 +1171,18 @@ function emitClassField(emitter: Emitter, node: Node): void {
         emitter.catchup(mods.start);
         mods.children.forEach(node => {
             emitter.catchup(node.start);
-            if (node.text !== Keywords.PRIVATE &&
-                    node.text !== Keywords.PUBLIC &&
-                    node.text !== Keywords.PROTECTED &&
-                    node.text !== Keywords.STATIC) {
+            if (
+                node.text !== Keywords.PRIVATE &&
+                node.text !== Keywords.PUBLIC &&
+                node.text !== Keywords.PROTECTED &&
+                node.text !== Keywords.STATIC
+            ) {
                 emitter.commentNode(node, false);
             }
             emitter.catchup(node.end);
         });
     }
 }
-
 
 function emitDeclaration(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
@@ -1078,17 +1192,16 @@ function emitDeclaration(emitter: Emitter, node: Node): void {
         emitter.catchup(mods.start);
         let insertExport = false;
         mods.children.forEach(node => {
-            if (node.text !== 'private') {
+            if (node.text !== "private") {
                 insertExport = true;
             }
             emitter.skipTo(node.end);
         });
         if (insertExport) {
-            emitter.insert('export');
+            emitter.insert("export");
         }
     }
 }
-
 
 function emitType(emitter: Emitter, node: Node): void {
     // Don't emit type on 'constructor' functions.
@@ -1126,7 +1239,6 @@ function emitType(emitter: Emitter, node: Node): void {
     emitter.insert(typeName);
 }
 
-
 function emitVector(emitter: Emitter, node: Node): void {
     if (!emitter.isNew) {
         emitter.catchup(node.start);
@@ -1135,7 +1247,7 @@ function emitVector(emitter: Emitter, node: Node): void {
     let type = node.findChild(NodeKind.TYPE);
     if (!type) {
         type = createNode(NodeKind.TYPE, {
-            text: 'any',
+            text: "any",
             start: node.start,
             end: node.end
         });
@@ -1148,30 +1260,28 @@ function emitVector(emitter: Emitter, node: Node): void {
         emitType(emitter, type);
     }
 
-    emitter.insert('[]');
+    emitter.insert("[]");
 
     emitter.skipTo(node.end);
 }
-
 
 function emitShortVector(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     let vector = node.findChild(NodeKind.VECTOR);
-    emitter.insert('Array');
+    emitter.insert("Array");
     let type = vector.findChild(NodeKind.TYPE);
     if (type) {
         emitType(emitter, type);
     } else {
-        emitter.insert('any');
+        emitter.insert("any");
     }
     emitter.catchup(vector.end);
-    emitter.insert('(');
+    emitter.insert("(");
     let arrayLiteral = node.findChild(NodeKind.ARRAY);
     emitArray(emitter, arrayLiteral);
-    emitter.insert(')');
+    emitter.insert(")");
     emitter.skipTo(node.end);
 }
-
 
 function emitNew(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
@@ -1183,76 +1293,71 @@ function emitNew(emitter: Emitter, node: Node): void {
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
-
     let isNew = emitter.isNew;
     emitter.isNew = false;
 
     if (node.children[0].kind === NodeKind.VECTOR) {
-        if(isNew) {
+        if (isNew) {
             let vector = node.children[0];
             let args = node.children[1];
-            emitter.insert('[');
+            emitter.insert("[");
             if (WARNINGS >= 2 && args.children.length > 0) {
-                console.log("emitter.ts: *** MINOR WARNING *** emitCall() => NodeKind.VECTOR with arguments not implemented.");
+                console.log(
+                    "emitter.ts: *** MINOR WARNING *** emitCall() => NodeKind.VECTOR with arguments not implemented."
+                );
             }
-            emitter.insert(']');
+            emitter.insert("]");
             emitter.skipTo(args.end);
             return;
-        }
-        else {
-            if(isCast(emitter, node)) {
+        } else {
+            if (isCast(emitter, node)) {
                 emitter.catchup(node.start);
-                emitter.insert('<');
-                const vec:Node = node.findChild(NodeKind.VECTOR);
+                emitter.insert("<");
+                const vec: Node = node.findChild(NodeKind.VECTOR);
                 visitNodes(emitter, [vec]);
-                emitter.insert('>');
-                const args:Node = node.findChild(NodeKind.ARGUMENTS);
+                emitter.insert(">");
+                const args: Node = node.findChild(NodeKind.ARGUMENTS);
                 emitter.skipTo(args.start);
                 visitNodes(emitter, [args]);
                 return;
             }
         }
-    }
-    else {
-        if(!isNew && isCast(emitter, node)) {
-            const type:Node = node.findChild(NodeKind.IDENTIFIER);
-            const args:Node = node.findChild(NodeKind.ARGUMENTS);
-            const rtype:string = emitter.getTypeRemap(type.text) || type.text;
+    } else {
+        if (!isNew && isCast(emitter, node)) {
+            const type: Node = node.findChild(NodeKind.IDENTIFIER);
+            const args: Node = node.findChild(NodeKind.ARGUMENTS);
+            const rtype: string = emitter.getTypeRemap(type.text) || type.text;
             emitter.catchup(node.start);
-            if(rtype === "string" || rtype === "number") {
+            if (rtype === "string" || rtype === "number") {
                 emitter.catchup(node.start);
-            }
-            else {
-                emitter.insert('<');
+            } else {
+                emitter.insert("<");
                 emitter.insert(rtype);
-                emitter.insert('>');
+                emitter.insert(">");
                 emitter.skipTo(args.start);
                 visitNodes(emitter, [args]);
                 return;
             }
-        }
-        else {
+        } else {
             emitter.catchup(node.start);
         }
     }
-
 
     visitNodes(emitter, node.children);
 }
 
-function isCast(emitter: Emitter, node: Node):boolean {
-
-    if(node.children.length == 0) {
+function isCast(emitter: Emitter, node: Node): boolean {
+    if (node.children.length == 0) {
         return false;
     }
 
     const isVector = node.children[0].kind === NodeKind.VECTOR;
-    if( isVector && !emitter.isNew ) {
+    if (isVector && !emitter.isNew) {
         return true;
     }
 
-    const type:Node = node.findChild(NodeKind.IDENTIFIER);
-    if(!type || !type.text) {
+    const type: Node = node.findChild(NodeKind.IDENTIFIER);
+    if (!type || !type.text) {
         return false;
     }
 
@@ -1266,23 +1371,22 @@ function isCast(emitter: Emitter, node: Node):boolean {
     // starts with an uppercase, consider it a cast.
     // (this is quite vague, but its a start)
     const firstLetter = type.text.substring(0, 1);
-    if(firstLetter === firstLetter.toLowerCase()) {
+    if (firstLetter === firstLetter.toLowerCase()) {
         return false;
     }
 
     return true;
 }
 
-
 function emitCatch(emitter: Emitter, node: Node): void {
     let exceptionName = node.children[0].text;
 
-    emitter.declareInScope({name: exceptionName})
+    emitter.declareInScope({ name: exceptionName });
     emitter.catchup(node.start);
 
     // accept the exception's name
     emitter.catchup(node.children[0].end);
-    let leftPaddingAtCatch = /\n([ \t]*)[^\n]*$/.exec(emitter.output)[1];    // all whitespace indenting the line that contains 'catch'
+    let leftPaddingAtCatch = /\n([ \t]*)[^\n]*$/.exec(emitter.output)[1]; // all whitespace indenting the line that contains 'catch'
 
     let block: Node = null;
     let exceptionType: Node = null;
@@ -1294,7 +1398,7 @@ function emitCatch(emitter: Emitter, node: Node): void {
         block = node.children[1];
     }
 
-    console.assert((!exceptionType) || exceptionType.kind == NodeKind.TYPE);
+    console.assert(!exceptionType || exceptionType.kind == NodeKind.TYPE);
     console.assert(block.kind == NodeKind.BLOCK);
 
     if (exceptionType !== null) {
@@ -1308,30 +1412,38 @@ function emitCatch(emitter: Emitter, node: Node): void {
     // to duplicate the behavior in ActionScript of being able to have the 'catch' body gaurded by a type check on the exception type,
     // surround the 'catch' body with an 'if' statement that checks the type of the exception with a call to 'instanceof'
     if (exceptionType !== null) {
-        let exceptionTypeName = (emitter.getTypeRemap(exceptionType.text) || exceptionType.text);
-        if (exceptionTypeName === 'any') {
+        let exceptionTypeName =
+            emitter.getTypeRemap(exceptionType.text) || exceptionType.text;
+        if (exceptionTypeName === "any") {
             // don't build an 'if' statement to check for an instance of this type, because all values are of type 'any', so the 'if' will never be false
         } else {
             // Surround the 'catch' body (after giving it an extra level of indentation) with an 'if' that appropriately checks the type of the exception being thrown,
             // and end the 'if' with an 'else' that re-throws the exception in the case where the type didn't match
             emitter.catchup(block.end);
-            let blockBeginIndex = emitter.output.indexOf('{', outputLengthBeforeBlockEmit);
+            let blockBeginIndex = emitter.output.indexOf(
+                "{",
+                outputLengthBeforeBlockEmit
+            );
             let emittedBlock = emitter.output.slice(blockBeginIndex + 1);
-            emittedBlock = emittedBlock.replace(/\n/g, '\n\t');  // indent the full block an extra level (here we're assuming that 'tabs' are used instead of 'spaces' for indenting)
-            let leftPaddingForIfStatement = leftPaddingAtCatch + '\t';
+            emittedBlock = emittedBlock.replace(/\n/g, "\n\t"); // indent the full block an extra level (here we're assuming that 'tabs' are used instead of 'spaces' for indenting)
+            let leftPaddingForIfStatement = leftPaddingAtCatch + "\t";
 
-            emitter.output = emitter.output.slice(0, blockBeginIndex + 1) + `\n${leftPaddingForIfStatement}if (${exceptionName} instanceof `;
+            emitter.output =
+                emitter.output.slice(0, blockBeginIndex + 1) +
+                `\n${leftPaddingForIfStatement}if (${exceptionName} instanceof `;
             // perform a little hackery to properly emit the exception's type
             let indexBeforeSkip = emitter.index;
             emitter.skipTo(exceptionType.start);
             visitNode(emitter, exceptionType);
             emitter.skipTo(indexBeforeSkip);
 
-            emitter.output += ') {' + emittedBlock + `\n${leftPaddingForIfStatement}else { throw ${exceptionName}; }\n${leftPaddingAtCatch}}`;
+            emitter.output +=
+                ") {" +
+                emittedBlock +
+                `\n${leftPaddingForIfStatement}else { throw ${exceptionName}; }\n${leftPaddingAtCatch}}`;
         }
     }
 }
-
 
 function emitRelation(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
@@ -1340,17 +1452,17 @@ function emitRelation(emitter: Emitter, node: Node): void {
         // TODO: implement relation with type cast to vectors
         //       e.g. (myVector as Vector.<Boolean>)
         if (node.lastChild.kind === NodeKind.IDENTIFIER) {
-            emitter.insert('(<');
-            emitter.insert(emitter.getTypeRemap(node.lastChild.text) || node.lastChild.text);
-            emitter.insert('>');
+            emitter.insert("(<");
+            emitter.insert(
+                emitter.getTypeRemap(node.lastChild.text) || node.lastChild.text
+            );
+            emitter.insert(">");
             visitNodes(emitter, node.getChildUntil(NodeKind.AS));
             emitter.catchup(as.start);
-            emitter.insert(')');
+            emitter.insert(")");
             emitter.skipTo(node.end);
-
         } else if (node.lastChild.kind === NodeKind.VECTOR) {
             visitNodes(emitter, node.children);
-
         } else {
             emitter.commentNode(node, false);
         }
@@ -1358,7 +1470,6 @@ function emitRelation(emitter: Emitter, node: Node): void {
     }
     visitNodes(emitter, node.children);
 }
-
 
 function emitOp(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
@@ -1381,7 +1492,6 @@ function emitOr(emitter: Emitter, node: Node): void {
     visitNodes(emitter, node.children);
 }
 
-
 export function emitIdent(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
 
@@ -1400,13 +1510,14 @@ export function emitIdent(emitter: Emitter, node: Node): void {
 
     let def = emitter.findDefInScope(node.text);
     if (def && def.bound) {
-        emitter.insert(def.bound + '.');
+        emitter.insert(def.bound + ".");
     }
 
-    if (!def &&
+    if (
+        !def &&
         emitter.currentClassName &&
         GLOBAL_NAMES.indexOf(node.text) === -1 &&
-        TYPE_REMAP[ node.text ] === undefined &&
+        TYPE_REMAP[node.text] === undefined &&
         node.text !== emitter.currentClassName
     ) {
         if (node.text.match(/^[A-Z]/)) {
@@ -1414,28 +1525,48 @@ export function emitIdent(emitter: Emitter, node: Node): void {
             if (!emitter.options.useNamespaces) {
                 emitter.ensureImportIdentifier(node.text);
             }
-
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
-            emitter.insert('this.');
+            if (emitter.inE4X) {
+                emitter.insert('n$.');
+            } else {
+                emitter.insert("this.");
+            }
+
         }
     }
 
     node.text = emitter.getIdentifierRemap(node.text) || node.text;
 
-    emitter.insert(node.text);
+    if (emitter.inE4X) {
+        let nodeVal = node.text;
+
+        if (node.text[0] === '@') {
+            emitter.insert(`attribute('${node.text.slice(1)}')`);
+        } else {
+            emitter.insert(node.text);
+        }
+
+    } else {
+        emitter.insert(node.text);
+    }
+
     emitter.skipTo(node.end);
     emitter.emitThisForNextIdent = true;
 }
 
-function emitDot (emitter: Emitter, node: Node) {
+function emitDot(emitter: Emitter, node: Node) {
     let dotSibling = node.nextSibling;
-    let isConditionalCompilation = (dotSibling && dotSibling.kind === NodeKind.BLOCK);
+    let isConditionalCompilation =
+        dotSibling && dotSibling.kind === NodeKind.BLOCK;
     let template = "if ($1)";
 
     if (!isConditionalCompilation && node.parent.kind === NodeKind.CONDITION) {
-        let separator = emitter.sourceBetween(node.children[0].end, node.children[0].end + 2);
-        isConditionalCompilation = (separator === "::");
+        let separator = emitter.sourceBetween(
+            node.children[0].end,
+            node.children[0].end + 2
+        );
+        isConditionalCompilation = separator === "::";
         template = "$1";
     }
 
@@ -1447,16 +1578,60 @@ function emitDot (emitter: Emitter, node: Node) {
 
     if (isConditionalCompilation) {
         emitter.catchup(node.start);
-        emitter.insert(template.replace("$1", `process.env.${ node.children[1].text.toUpperCase() }`));
+        emitter.insert(
+            template.replace(
+                "$1",
+                `process.env.${node.children[1].text.toUpperCase()}`
+            )
+        );
         emitter.skipTo(node.end);
         return;
-
     } else {
         // TODO: allow conditional compilation for function/class definitions
-
     }
 
     visitNodes(emitter, node.children);
+}
+
+function emitE4XAttr(emitter: Emitter, node: Node): void {
+    console.log("E4XAttr:", node.parent.kind, drawNode(node));
+}
+
+function emitE4XFilter(emitter: Emitter, node: Node): void {
+    const filter = node.children[node.children.length - 1];
+    const lastKid = filter.children[filter.children.length - 1];
+
+    // if (!filter.children[0].text) {
+    //     console.log("Empty:", drawNode(node));
+    //     return;
+    //     // throw new Error('Text');
+    // }
+
+    emitter.catchup(node.start - 1);
+    emitter.insert(`filter((n$) => `)
+
+    emitter.inE4X = true;
+
+    visitNodes(emitter, node.children);
+    console.log("Filter:", node.parent.kind, drawNode(node));
+
+    emitter.inE4X = false;
+
+    emitter.insert(')');
+
+    emitter.skipTo(node.end);
+
+    // emitter.
+
+    // const name = filter.children[0].text.slice(1);
+    // const start = filter.children[0].text[0];
+
+    // if (start === "@") {
+        // emitter.insert(`filter((n$) => n$.attribute('${name}')`);
+    // } else {
+    //     throw new Error("Not supported yet");
+    //     // emitter.insert(`filter((n$) => n$.attribute('${name}')`)
+    // }
 }
 
 function emitXMLLiteral(emitter: Emitter, node: Node): void {
@@ -1467,23 +1642,51 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    emitter.insert(node.text);
+
+    if (node.text[0] === "@") {
+        console.log("LITERAL:", node.text);
+        emitter.insert(`attribute('${node.text.slice(1)}')`);
+    } else {
+        emitter.insert(node.text);
+    }
+
     emitter.skipTo(node.end);
 }
 
 function emitArray(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    emitter.insert('[');
+    emitter.insert("[");
     if (node.children.length > 0) {
         emitter.skipTo(node.children[0].start);
         visitNodes(emitter, node.children);
         emitter.catchup(node.lastChild.end);
     }
-    emitter.insert(']');
+    emitter.insert("]");
     emitter.skipTo(node.end);
 }
 
-export function emit(ast: Node, source: string, options?: EmitterOptions): string {
+export function emit(
+    ast: Node,
+    source: string,
+    options?: EmitterOptions
+): string {
     let emitter = new Emitter(source, options);
     return emitter.emit(ast);
+}
+
+function drawNode(node: Node, depth = 0): string {
+    let t = "";
+
+    for (let i = 0; i < depth; i += 1) {
+        t += "  ";
+    }
+
+    t += `${node.kind}:${node.text}\n`;
+
+    for (const child of node.children) {
+        t += drawNode(child, depth + 1);
+    }
+
+    return t;
+    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
 }

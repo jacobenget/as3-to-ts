@@ -73,7 +73,6 @@ export function parsePrimaryExpression(parser:AS3Parser):Node {
 
         // Transpile identifier to JavaScript equivalent if it's a keyword.
         if (result.text === Keywords.INT || result.text === Keywords.UINT) {
-            // console.log("That's a INT/UINT: ", result);
             result.text = "Number";
         }
     }
@@ -436,8 +435,7 @@ function parseAccessExpression(parser:AS3Parser):Node {
     while (true) {
         if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
             node = parseFunctionCall(parser, node);
-        }
-        if (tokIs(parser, Operators.DOT) || tokIs(parser, Operators.DOUBLE_COLUMN)) {
+        } else if (tokIs(parser, Operators.DOT) || tokIs(parser, Operators.DOUBLE_COLUMN)) {
             node = parseDot(parser, node);
         } else if (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
             node = parseArrayAccessor(parser, node);
@@ -485,24 +483,46 @@ function parseArgumentList(parser:AS3Parser):Node {
     return result;
 }
 
+function drawNode(node: Node, depth = 0): string {
+    let t = "";
 
+    for (let i = 0; i < depth; i += 1) {
+        t += "  ";
+    }
+
+    t += (node.text || node.kind) + "\n";
+
+    for (const child of node.children) {
+        t += drawNode(child, depth + 1);
+    }
+
+    return t;
+    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
+}
 
 function parseDot(parser:AS3Parser, node:Node):Node {
     nextToken(parser);
     if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
         nextToken(parser);
-        let result:Node = createNode(NodeKind.E4X_FILTER, {start: parser.tok.index});
-        result.children.push(node);
+        let result = createNode(NodeKind.E4X_FILTER, {start: parser.tok.index});
+        // result.children.push(node);
         result.children.push(parseExpression(parser));
         skipAllDocumentation(parser);
         result.end = consume(parser, Operators.RIGHT_PARENTHESIS).end;
+        // console.log('FILTER:', drawNode(result));
         return result;
     } else if (tokIs(parser, Operators.TIMES)) {
-        let result:Node = createNode(NodeKind.E4X_STAR, {start: parser.tok.index});
+        let result = createNode(NodeKind.E4X_STAR, {start: parser.tok.index});
         result.children.push(node);
         result.end = consume(parser, Operators.TIMES).end;
         return result;
+    } else if (tokIs(parser, Operators.AT)) {
+        let result = createNode(NodeKind.E4X_AT, {start: parser.tok.index});
+        result.children.push(node);
+        result.end = consume(parser, Operators.AT).end;
+        return result;
     }
+
     let result:Node = createNode(NodeKind.DOT, {start: node.start});
     result.children.push(node);
     result.children.push(createNode(NodeKind.LITERAL, {tok: parser.tok}));
@@ -515,6 +535,7 @@ function parseDot(parser:AS3Parser, node:Node):Node {
 
 
 function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
+    console.log('ARRAY ACCESSOR');
     let result:Node = createNode(NodeKind.ARRAY_ACCESSOR, {start: node.start});
     result.children.push(node);
     while (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
@@ -522,6 +543,7 @@ function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
         result.children.push(parseExpression(parser));
         result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
     }
+    console.log(drawNode(result));
     return result;
 }
 

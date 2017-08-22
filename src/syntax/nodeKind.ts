@@ -33,6 +33,7 @@ enum NodeKind {
     E4X_ATTR,
     E4X_FILTER,
     E4X_STAR,
+    E4X_AT, 
     ENCAPSULATED,
     EQUALITY,
     EXPR_LIST,

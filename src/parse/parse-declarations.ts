@@ -482,8 +482,6 @@ function parseFunctionSignature(parser:AS3Parser):Node {
 
 function doParseSignature(parser:AS3Parser) {
 
-    // console.logparse-declarations.ts - doParseSignature()");
-
     let tok = consume(parser, Keywords.FUNCTION);
     let type:Node = createNode(NodeKind.TYPE, {tok: tok});
 

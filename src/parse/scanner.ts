@@ -212,7 +212,6 @@ function nextToken(scanner: AS3Scanner): Token {
     if(AUTO_INSERT_SEMICOLONS && scanner.missedSemi) {
         // insert semicolon
         // TODO: this is successfully detected, but the insertion doesn not work
-        // console.log(">>> [INSERT SEMICOLON] <<<");
         // scanner.queuedToken = scanner.createToken(";\n", {skip: true});
     }
 
