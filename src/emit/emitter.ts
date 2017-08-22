@@ -257,7 +257,9 @@ export default class Emitter {
     public scope: Scope = null;
 
     public inE4X: boolean = false;
+    public isAccessingXML: boolean = false;
     public inAssign: number = 0;
+    public dotChainDepth: number = 0;
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -1382,7 +1384,12 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
         emitter.catchup(node.start);
     }
 
-    visitNodes(emitter, node.children);
+    visitNode(emitter, node.children[0]);
+    const prevDepth = emitter.dotChainDepth;
+    emitter.dotChainDepth = 0;
+    visitNode(emitter, node.children[1]);
+    emitter.dotChainDepth = prevDepth;
+    
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
@@ -1654,6 +1661,13 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     }
 
     emitter.skipTo(node.end);
+
+    const decl = emitter.scope.declarations.find((n) => n.name === node.text);
+    if (decl && decl.type === 'XML') {
+        emitter.isAccessingXML = true;
+    } else {
+        emitter.isAccessingXML = false;
+    }
     emitter.emitThisForNextIdent = true;
 }
 
@@ -1692,8 +1706,9 @@ function emitDot(emitter: Emitter, node: Node) {
         // TODO: allow conditional compilation for function/class definitions
     }
 
-
+    emitter.dotChainDepth += 1;
     visitNodes(emitter, node.children);
+    emitter.dotChainDepth -= 1;
 }
 
 function emitE4XAttr(emitter: Emitter, node: Node): void {
@@ -1756,7 +1771,11 @@ function emitLiteral(emitter: Emitter, node: Node): void {
             emitter.insert(')');
         }
     } else {
-        emitter.insert(node.text);
+        if (emitter.dotChainDepth && emitter.isAccessingXML) {
+            emitter.insert(`child('${node.text}')`)
+        } else {
+            emitter.insert(node.text);
+        }
     }
 
     emitter.skipTo(node.end);
