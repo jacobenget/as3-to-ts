@@ -474,7 +474,14 @@ function scanSingleLineComment(scanner: AS3Scanner): Token {
     }
     while ((!isNewLineChar(char)) && (scanner.index < scanner.content.length));
 
-    return scanner.createToken(buffer, {skip: false});
+    // if we've reached the end of the file then 'scanner.index' points to the end of the file,
+    // otherwise it points to the last character of the comment
+    let lastCharacterOfComment = (scanner.index < scanner.content.length) ? scanner.index : scanner.index - 1;
+
+    return scanner.createToken(buffer, {
+        index: (lastCharacterOfComment + 1) - buffer.length,
+        skip: false
+    });
 }
 
 

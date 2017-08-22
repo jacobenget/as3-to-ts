@@ -5,6 +5,7 @@ import assign = require("object-assign");
 import { CustomVisitor } from "../custom-visitors";
 import { VERBOSE, WARNINGS } from "../config";
 import * as Operators from "../syntax/operators";
+import * as assert from "assert";
 
 const util = require("util");
 
@@ -684,17 +685,8 @@ function emitImport(emitter: Emitter, node: Node): void {
 
         // const importPath = getRelativePath(currentModule.split("."), text.split("."));
         const importPath = text.replace(/\./g, "/");
-        let isDup = false;
 
-        if (emitter.source.search(new RegExp(`class\\s+${name}\\b`)) >= 0) {
-            isDup = true;
-        }
-
-        if (isDup) {
-            text = `{ ${name} as dup_${name} } from "${importPath}"`;
-        } else {
-            text = `{ ${name} } from "${importPath}"`;
-        }
+        text = `{ ${name} } from "${importPath}"`;
         emitter.insert(text);
         emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
         emitter.declareInScope({ name });
@@ -821,11 +813,9 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
                 node.kind === NodeKind.CONST
             ) {
                 result = result.concat(
-                    node
-                        .findChildren(NodeKind.NAME_TYPE_INIT)
-                        .map(node => ({
-                            name: node.findChild(NodeKind.NAME).text
-                        }))
+                    node.findChildren(NodeKind.NAME_TYPE_INIT).map(node => ({
+                        name: node.findChild(NodeKind.NAME).text
+                    }))
                 );
             }
             if (
@@ -1005,14 +995,8 @@ function emitClass(emitter: Emitter, node: Node): void {
     // ensure extends identifier is being imported
     let extendsNode = node.findChild(NodeKind.EXTENDS);
     if (extendsNode) {
-        if (name.text === extendsNode.text) {
-            extendsNode.text = `dup_${extendsNode.text}`;
-            emitIdent(emitter, extendsNode);
-            emitter.ensureImportIdentifier(extendsNode.text.slice(4));
-        } else {
-            emitIdent(emitter, extendsNode);
-            emitter.ensureImportIdentifier(extendsNode.text);
-        }
+        emitIdent(emitter, extendsNode);
+        emitter.ensureImportIdentifier(extendsNode.text);
     }
 
     // ensure implements identifiers are being imported
@@ -1136,15 +1120,50 @@ function emitMethod(emitter: Emitter, node: Node): void {
         // }
     }
 
-    const regex = new RegExp(
-        String.raw`set +${node.text}\b.*\(.*:\s*(\S+)\s*\)`
-    );
-
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
         if (node.kind === NodeKind.GET) {
-            const m = emitter.source.match(regex);
-            if (m) {
-                node.children[node.children.length - 2].text = m[1];
+            // Problem: ActionScript allows paired 'get' and 'set methods to have different types.
+            // TypeScript does not allow this, so the types of the 'get' and 'set' methods need to match.
+            // Fix here involves ignoring the type on the 'get' and using the type on the 'set' for the 'get' instead
+
+            let hasStaticModifer = function(setOrGetNode: Node): boolean {
+                return (
+                    setOrGetNode
+                        .findChild(NodeKind.MOD_LIST)
+                        .findChildren(NodeKind.MODIFIER)
+                        .filter(modifier => modifier.text === "static").length >
+                    0
+                );
+            };
+
+            let getIsStatic = hasStaticModifer(node);
+
+            // find all 'set' nodes that appear in the same class, that have the same name, and are the same 'static-ness'
+            let matchingSetNodes = node.parent
+                .findChildren(NodeKind.SET)
+                .filter(sibling => sibling.text === node.text)
+                .filter(sibling => getIsStatic === hasStaticModifer(sibling));
+
+            assert(matchingSetNodes.length <= 1); // there should be at most one such matching set node
+
+            if (matchingSetNodes.length > 0) {
+                // and if we found a matching set node, use its type for this 'get' node
+                let parameterList = matchingSetNodes[0].findChild(
+                    NodeKind.PARAMETER_LIST
+                );
+                let parameterNode = parameterList.findChild(NodeKind.PARAMETER);
+                let nameTypeInit = parameterNode.findChild(
+                    NodeKind.NAME_TYPE_INIT
+                );
+                if (
+                    nameTypeInit.findChild(NodeKind.TYPE) !== null &&
+                    node.findChild(NodeKind.TYPE) !== null
+                ) {
+                    let type = nameTypeInit.findChild(NodeKind.TYPE);
+                    node.findChild(NodeKind.TYPE).text = type.text;
+                } else {
+                    // TODO: handle cases where either the 'get' or the 'set' node's type is more complicated than a single NodeKind.TYPE (i.e. it's a NodeKind.VECTOR)
+                }
             }
         }
         visitNodes(emitter, node.getChildFrom(NodeKind.NAME));
@@ -1169,17 +1188,53 @@ function emitClassField(emitter: Emitter, node: Node): void {
     let mods = node.findChild(NodeKind.MOD_LIST);
     if (mods) {
         emitter.catchup(mods.start);
+
+        let modifiersToEmit = [
+            Keywords.PRIVATE,
+            Keywords.PUBLIC,
+            Keywords.PROTECTED,
+            Keywords.STATIC
+        ];
+
+        let mapFromModifiersToTextToEmit: any = {};
+        modifiersToEmit.forEach(keyword => {
+            mapFromModifiersToTextToEmit[keyword] = keyword;
+        });
+
+        // Need to fix this difference:
+        //  ActionScript: 'static' modifier can appear before or after access modifier
+        //  TypeScript: 'static' modifier must appear after access modifier
+        if (
+            mods.children.findIndex(node => node.text === Keywords.STATIC) !==
+            -1
+        ) {
+            // if the 'static' modifier exists
+            let modifiersToEmit = mods.children
+                .map(node => node.text)
+                .filter(modifier =>
+                    mapFromModifiersToTextToEmit.hasOwnProperty(modifier)
+                );
+            let lastModifierToEmit =
+                modifiersToEmit[modifiersToEmit.length - 1];
+            if (lastModifierToEmit !== Keywords.STATIC) {
+                // and the last effective modifier is *not* 'static'
+                // then swap the last one with 'static'
+                mapFromModifiersToTextToEmit[
+                    Keywords.STATIC
+                ] = lastModifierToEmit;
+                mapFromModifiersToTextToEmit[lastModifierToEmit] =
+                    Keywords.STATIC;
+            }
+        }
+
         mods.children.forEach(node => {
             emitter.catchup(node.start);
-            if (
-                node.text !== Keywords.PRIVATE &&
-                node.text !== Keywords.PUBLIC &&
-                node.text !== Keywords.PROTECTED &&
-                node.text !== Keywords.STATIC
-            ) {
+            if (mapFromModifiersToTextToEmit.hasOwnProperty(node.text)) {
+                emitter.insert(mapFromModifiersToTextToEmit[node.text]);
+                emitter.skipTo(node.end);
+            } else {
                 emitter.commentNode(node, false);
             }
-            emitter.catchup(node.end);
         });
     }
 }
@@ -1528,11 +1583,10 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
             if (emitter.inE4X) {
-                emitter.insert('n$.');
+                emitter.insert("n$.");
             } else {
                 emitter.insert("this.");
             }
-
         }
     }
 
@@ -1541,12 +1595,11 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     if (emitter.inE4X) {
         let nodeVal = node.text;
 
-        if (node.text[0] === '@') {
+        if (node.text[0] === "@") {
             emitter.insert(`attribute('${node.text.slice(1)}')`);
         } else {
             emitter.insert(node.text);
         }
-
     } else {
         emitter.insert(node.text);
     }
@@ -1608,7 +1661,7 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     // }
 
     emitter.catchup(node.start - 1);
-    emitter.insert(`filter((n$) => `)
+    emitter.insert(`filter((n$) => `);
 
     emitter.inE4X = true;
 
@@ -1617,7 +1670,7 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
 
     emitter.inE4X = false;
 
-    emitter.insert(')');
+    emitter.insert(")");
 
     emitter.skipTo(node.end);
 
@@ -1627,7 +1680,7 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     // const start = filter.children[0].text[0];
 
     // if (start === "@") {
-        // emitter.insert(`filter((n$) => n$.attribute('${name}')`);
+    // emitter.insert(`filter((n$) => n$.attribute('${name}')`);
     // } else {
     //     throw new Error("Not supported yet");
     //     // emitter.insert(`filter((n$) => n$.attribute('${name}')`)
