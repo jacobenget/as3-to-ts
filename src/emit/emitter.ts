@@ -272,6 +272,7 @@ export default class Emitter {
     public isAccessingXML: boolean = false;
     public inAssign: number = 0;
     public dotChainDepth: number = 0;
+    public settingChild: boolean = false;
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -1401,9 +1402,21 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
 
     visitNode(emitter, node.children[0]);
     const prevDepth = emitter.dotChainDepth;
+
+    console.log('DOT CHAIN DEPTH:', emitter.dotChainDepth)    
+    if (emitter.isAccessingXML && emitter.settingChild) {
+        emitter.skipTo(node.children[1].start);
+        emitter.insert(', ');
+    }
+
     emitter.dotChainDepth = 0;
     visitNode(emitter, node.children[1]);
     emitter.dotChainDepth = prevDepth;
+
+    if (emitter.isAccessingXML && emitter.settingChild) {
+        emitter.skipTo(node.children[1].end);
+    }
+
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
@@ -1793,8 +1806,10 @@ function emitLiteral(emitter: Emitter, node: Node): void {
             console.log('CHILD:', emitter.inAssign, emitter.dotChainDepth);
             if (emitter.inAssign && emitter.dotChainDepth === 1) {
                 emitter.insert(`setChild('${node.text}'`);
+                emitter.settingChild = true;
             } else {
                 emitter.insert(`child('${node.text}')`);
+                emitter.settingChild = false;
                 // if (emitter.childIndex) {
                 //     const idx = emitter.childIndex;
                 //     emitter.childIndex = null;
