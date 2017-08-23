@@ -1389,6 +1389,7 @@ function emitNew(emitter: Emitter, node: Node): void {
 }
 
 function emitArrayAccessor(emitter: Emitter, node: Node) {
+
     if (node.children[0].kind === NodeKind.DOT) {
         const dotRoot = node.children[0];
 
@@ -1421,6 +1422,7 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
     }
 
     emitter.finalNode.pop();
+
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
@@ -1679,7 +1681,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
 
         if (node.text[0] === '@') {
             emitter.insert(
-                `${emitter.inAssign
+                `${emitter.inAssign 
                     ? 'setAttribute'
                     : 'attribute'}('${node.text.slice(1)}')`
             );
@@ -1693,11 +1695,6 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     emitter.skipTo(node.end);
 
     const decl = emitter.scope.declarations.find(n => n.name === node.text);
-    if (decl && decl.type === 'XML') {
-        emitter.isAccessingXML = true;
-    } else {
-        emitter.isAccessingXML = false;
-    }
     emitter.emitThisForNextIdent = true;
 }
 
@@ -1737,6 +1734,19 @@ function emitDot(emitter: Emitter, node: Node) {
     }
 
     emitter.dotChainDepth += 1;
+    emitter.isAccessingXML = false;
+    let leaf = node;
+    while (leaf.kind === NodeKind.DOT && leaf.children.length) {
+        leaf = leaf.children[0];
+    }
+
+    if (leaf.kind === NodeKind.IDENTIFIER) {
+        const decl = emitter.scope.declarations.find(n => n.name === leaf.text);
+        if (decl && decl.type === 'XML') {
+            emitter.isAccessingXML = true;
+        }
+    }
+
     visitNodes(emitter, node.children);
     emitter.dotChainDepth -= 1;
 }
