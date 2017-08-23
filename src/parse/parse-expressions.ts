@@ -542,6 +542,7 @@ function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
         result.children.push(parseExpression(parser));
         result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
     }
+    console.log(drawNode(result));
     return result;
 }
 
