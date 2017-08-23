@@ -157,14 +157,54 @@ function emitAssign(emitter: Emitter, node: Node) {
 
     console.log('ASSIGN:', drawNode(node));
 
-    for (const kid of kids) {
-        if (kid.text[0] === '@') {
+    if (node.children[0].kind === NodeKind.DOT) {
+        const dotRoot = node.children[0];
+        if (dotRoot.children[1].text === '@') {
             attributeAssign = true;
-            break;
         }
+
+        emitter.finalNode.push(dotRoot.children[1]);
+    } else {
+        emitter.finalNode.push(null);
     }
 
+    // for (const kid of kids) {
+    //     if (kid.text[0] === '@') {
+    //         attributeAssign = true;
+    //         break;
+    //     }
+    // }
+
     emitter.inAssign += 1;
+
+    // LAST
+    // if (emitter.isAccessingXML) {
+    //     visitNode(emitter, node.children[0]);
+    //     emitter.skipTo(node.children[2].start);
+    //     emitter.insert(', ');
+ 
+    //     visitNode(emitter, node.children[2]);
+
+    //     emitter.skipTo(node.end);
+    //     emitter.insert(')');
+    // } else {
+    //     visitNodes(emitter, node.children);
+    // }
+    // LAST
+
+    // if (emitter.isAccessingXML) {
+    //     emitter.skipTo(node.children[2].start);
+    //     emitter.insert(', ');
+    // }
+
+    // visitNode(emitter, node.children[2]);
+    // if (emitter.isAccessingXML) {
+    //     emitter.skipTo(node.end);
+    //     emitter.insert(')');
+    // } else {
+    //     // emitter.catchup(node.end);
+    //     visitNodes(emitter, node.children);
+    // }
     visitNode(emitter, node.children[0]);
     if (emitter.isAccessingXML) {
         emitter.skipTo(node.children[2].start);
@@ -175,11 +215,14 @@ function emitAssign(emitter: Emitter, node: Node) {
     }
 
     visitNode(emitter, node.children[2]);
-    emitter.skipTo(node.end);
     if (emitter.isAccessingXML) {
+        emitter.skipTo(node.end);
         emitter.insert(')');
+    } else {
+        emitter.catchup(node.end);
     }
     emitter.inAssign -= 1;
+    emitter.finalNode.pop();
 }
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -273,6 +316,7 @@ export default class Emitter {
     public inAssign: number = 0;
     public dotChainDepth: number = 0;
     public settingChild: boolean = false;
+    public finalNode: Node[] = [];
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -1393,6 +1437,15 @@ function emitNew(emitter: Emitter, node: Node): void {
 function emitArrayAccessor(emitter: Emitter, node: Node) {
     console.log('ARRAY ACCESSOR:', drawNode(node));
 
+    if (node.children[0].kind === NodeKind.DOT) {
+        const dotRoot = node.children[0];
+
+        emitter.finalNode.push(dotRoot.children[1]); 
+
+    } else {
+        emitter.finalNode.push(null);
+    }
+
     if (emitter.source[node.start - 2] === '.') {
         emitter.catchup(node.start - 1);
         emitter.skip(1);
@@ -1416,6 +1469,8 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
     if (emitter.isAccessingXML && emitter.settingChild) {
         emitter.skipTo(node.children[1].end);
     }
+
+    emitter.finalNode.pop();
 
 }
 
@@ -1675,7 +1730,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
 
         if (node.text[0] === '@') {
             emitter.insert(
-                `${emitter.inAssign
+                `${emitter.inAssign 
                     ? 'setAttribute'
                     : 'attribute'}('${node.text.slice(1)}')`
             );
@@ -1757,6 +1812,8 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
 
     emitter.inE4X = true;
 
+    emitter.skipTo(node.start);
+
     visitNodes(emitter, node.children);
 
     emitter.inE4X = false;
@@ -1786,15 +1843,16 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
+    const lastNode = emitter.finalNode[emitter.finalNode.length - 1];
 
     if (node.text[0] === '@') {
         emitter.insert(
-            `${emitter.inAssign
+            `${lastNode === node
                 ? 'setAttribute'
                 : 'attribute'}('${node.text.slice(1)}'`
         );
 
-        if (!emitter.inAssign) {
+        if (lastNode !== node) {
             emitter.insert(')');
         }
     } else {
@@ -1804,7 +1862,10 @@ function emitLiteral(emitter: Emitter, node: Node): void {
             !isXMLMethod(node.text)
         ) {
             console.log('CHILD:', emitter.inAssign, emitter.dotChainDepth);
-            if (emitter.inAssign && emitter.dotChainDepth === 1) {
+            console.log('NODE:', node);
+            console.log('Last Node:', lastNode);
+            // if (emitter.inAssign && emitter.dotChainDepth === 1) {
+            if (node === lastNode && emitter.inAssign && emitter.dotChainDepth === 1) {
                 emitter.insert(`setChild('${node.text}'`);
                 emitter.settingChild = true;
             } else {
