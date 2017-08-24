@@ -120,7 +120,7 @@ function parsePackageContent(parser:AS3Parser):Node {
 }
 
 
-function parseImport(parser:AS3Parser):Node {
+export function parseImport(parser:AS3Parser):Node {
 
     let tok = consume(parser, Keywords.IMPORT);
     let name = parseImportName(parser);
