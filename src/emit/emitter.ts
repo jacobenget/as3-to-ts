@@ -1386,12 +1386,9 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
-    let isNew = emitter.isNew;
-    emitter.isNew = false;
-
-
     if (node.children[0].kind === NodeKind.VECTOR) {
-        if (isNew) {
+        if (emitter.isNew) {
+            emitter.isNew = false;
             let vector = node.children[0];
             let args = node.children[1];
             emitter.insert('[');
@@ -1417,7 +1414,7 @@ function emitCall(emitter: Emitter, node: Node): void {
             }
         }
     } else {
-        if (!isNew && isCast(emitter, node)) {
+        if (!emitter.isNew && isCast(emitter, node)) {
             console.log('IS CAST');
             const type: Node = node.findChild(NodeKind.IDENTIFIER);
             const args: Node = node.findChild(NodeKind.ARGUMENTS);
@@ -1443,7 +1440,11 @@ function emitCall(emitter: Emitter, node: Node): void {
         }
     }
 
-    visitNodes(emitter, node.children);
+    // emit the expression that represents the function that is being called
+    visitNode(emitter, node.children[0]);
+    // now that the expression representing the function has been emitted, we can consider ourselves no longer emitting an effective part of a 'new' statement
+    emitter.isNew = false;
+    visitNodes(emitter, node.children.slice(1));
 }
 
 function isCast(emitter: Emitter, node: Node): boolean {
