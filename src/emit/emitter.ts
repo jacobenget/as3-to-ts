@@ -895,6 +895,10 @@ function emitFunction(emitter: Emitter, node: Node): void {
         return false;
     });
 
+    if (node.text != null) {
+        emitter.declareInScope({name: node.text});
+    }
+
     if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
         // we're emitting a function that's defined inside a member function,
         // meaning that the object that this member function is being called upon has it's member variables in scope,
