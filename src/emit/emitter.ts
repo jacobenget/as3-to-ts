@@ -50,7 +50,12 @@ const GLOBAL_NAMES = [
     'ReferenceError',
     'SyntaxError',
     'TypeError',
-    'URIError'
+    'URIError',
+    'Element',
+    'DOMParser',
+    'Document',
+    'Node',
+    'Attr'
 ];
 
 const TYPE_REMAP: { [id: string]: string } = {
