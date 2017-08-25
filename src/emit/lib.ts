@@ -5,6 +5,7 @@ export function isXMLMethod(childName: string): boolean {
             'addNamespace',
             'appendChild',
             'attribute',
+            'attributes',
             'child',
             'childIndex',
             'children',

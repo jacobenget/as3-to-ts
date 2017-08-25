@@ -24,7 +24,26 @@ export function parseCompilationUnit(parser:AS3Parser):Node {
         result.children.push(parsePackage(parser));
     }
     result.children.push(parsePackageContent(parser));
+    validateNodes(result);
     return result;
+}
+
+function validateNodes(node: Node): [number, number] {
+
+    for (const child of node.children) {
+        if (child) {
+            const [start, end] = validateNodes(child);
+            if (start < node.start) {
+                node.start = start;
+            }
+
+            if (end > node.end) {
+                node.end = end;
+            }
+        }
+    }
+
+    return [node.start, node.end]
 }
 
 
