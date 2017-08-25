@@ -112,4 +112,12 @@ export default class Node {
     get lastChild(): Node {
         return this.children[this.children.length - 1];
     }
+
+    getParentChain(): Node[] {
+        if (this.parent == null) {
+            return [];
+        } else {
+            return this.parent.getParentChain().concat(this.parent);
+        }
+    }
 }

@@ -868,12 +868,96 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
+
+function hasStaticModifer(setOrGetNode: Node): boolean {
+    return (
+        setOrGetNode
+            .findChild(NodeKind.MOD_LIST)
+            .findChildren(NodeKind.MODIFIER)
+            .filter(modifier => modifier.text === Keywords.STATIC).length > 0
+    );
+}
+
 function emitFunction(emitter: Emitter, node: Node): void {
-    emitDeclaration(emitter, node);
-    emitter.withScope(getFunctionDeclarations(emitter, node), () => {
-        let rest = node.getChildFrom(NodeKind.MOD_LIST);
-        visitNodes(emitter, rest);
+    assert(node.kind === NodeKind.FUNCTION || node.kind === NodeKind.LAMBDA);
+
+    // figure out if we are we inside a class function definition
+    // Note: "ActionScript 3.0 supports neither nested nor private classes" (http://help.adobe.com/en_US/ActionScript/3.0_ProgrammingAS3/WS5b3ccc516d4fbf351e63e3d118a9b90204-7f9e.html)
+    // so if we're inside a class function definition we must be inside only ONE class function definition, and we can just find the first one
+    let classFunctionContainingThisFunction = node.getParentChain().find(ancestor => {
+        if (ancestor.kind === NodeKind.FUNCTION) {
+            return (
+                // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
+                ancestor.parent.kind === NodeKind.CONTENT &&
+                ancestor.parent.parent.kind == NodeKind.CLASS
+            );
+        }
+        return false;
     });
+
+    if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
+        // we're emitting a function that's defined inside a member function,
+        // meaning that the object that this member function is being called upon has it's member variables in scope,
+        // so we should transform this function declaration into a fat arrow function to capture the value of 'this'
+        // (elsewhere, the emitter will be prepending 'this' to references to variables that weren't defined lcoally)
+
+        // assert that there is no reason to call 'emitDeclaration', because there's no metadata or modifications on this function
+        assert(node.findChild(NodeKind.META_LIST) === null);
+        assert(node.findChild(NodeKind.MOD_LIST) === null);
+
+        // assume a certain structure for the children
+        assert(node.children.length === 3);
+        assert(node.children[0].kind === NodeKind.PARAMETER_LIST);
+        assert(node.children[1].kind === NodeKind.VECTOR || node.children[1].kind === NodeKind.TYPE);
+        assert(node.children[2].kind === NodeKind.BLOCK);
+
+        let parameterList = node.children[0];
+        let returnType = node.children[1];
+        let functionBody = node.children[2];
+
+        emitter.catchup(node.start);
+
+        if (node.parent.kind === NodeKind.BLOCK) {
+            let functionName = node.text;
+            assert(functionName != null);
+            emitter.insert(`let ${functionName} = `);
+        } else if (node.text != null) {
+            // this function, whose definition doesn't not appear as a statement, has a name
+            // which means we have a possible recursive lambda (which we can't easily replace with a fat arrow function,
+            // because we need to generate a statement to assign a name to this lambda, and this fat arrow function doesn't appear at a statement level, make it harder to figure out where to put the statement)
+
+            // search for the function's name within the function body to see if this function might be recursive
+            let functionName = node.text;
+            let functionBodySource = emitter.sourceBetween(functionBody.start, functionBody.end);
+            let functionMightBeRecursive = new RegExp(String.raw`\b${functionName}\b`).test(functionBodySource);
+            assert(!functionMightBeRecursive, `Lambda function named ${node.text} appears to be recursive, so replacing it with a fat-arrow function would be an error`);
+        }
+
+        emitter.withScope(getFunctionDeclarations(emitter, node), () => {
+            emitter.consume(Keywords.FUNCTION, parameterList.start);
+            // skip all whitespace appearing after Keywords.FUNCTION
+            while (/\s/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
+                emitter.skip(1);
+            }
+            emitter.skipTo(parameterList.start);
+            visitNode(emitter, parameterList);
+            visitNode(emitter, returnType);
+            emitter.catchup(functionBody.start);
+            // ensure there's some whitespace between the return type and the fat arrow
+            if (/\S/.test(emitter.output.slice(-1))) {
+                emitter.insert(' ');
+            }
+            emitter.insert('=> ');
+            visitNode(emitter, functionBody);
+
+        });
+    } else {
+        emitDeclaration(emitter, node);
+        emitter.withScope(getFunctionDeclarations(emitter, node), () => {
+            let rest = node.getChildFrom(NodeKind.MOD_LIST);
+            visitNodes(emitter, rest);
+        });
+    }
 }
 
 function emitForIn(emitter: Emitter, node: Node): void {
@@ -1157,16 +1241,6 @@ function emitMethod(emitter: Emitter, node: Node): void {
             // Problem: ActionScript allows paired 'get' and 'set methods to have different types.
             // TypeScript does not allow this, so the types of the 'get' and 'set' methods need to match.
             // Fix here involves ignoring the type on the 'get' and using the type on the 'set' for the 'get' instead
-
-            let hasStaticModifer = function(setOrGetNode: Node): boolean {
-                return (
-                    setOrGetNode
-                        .findChild(NodeKind.MOD_LIST)
-                        .findChildren(NodeKind.MODIFIER)
-                        .filter(modifier => modifier.text === 'static').length >
-                    0
-                );
-            };
 
             let getIsStatic = hasStaticModifer(node);
 
