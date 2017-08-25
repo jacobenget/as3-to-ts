@@ -1648,16 +1648,46 @@ function emitRelation(emitter: Emitter, node: Node): void {
         }
         return;
     }
+
+    let is = node.findChild(NodeKind.IS);
+    if (is) {
+        assert(node.children.length === 3 && node.children[1].kind == NodeKind.IS);
+
+        let valueExpression = node.children[0];
+        let constructorExpression = node.children[2];
+
+        let typeFromPrimitiveActionScriptType : { [id: string]: string } = {
+            String: 'string',
+            Number: 'number',
+            Boolean: 'boolean',
+        };
+
+        if (constructorExpression.kind === NodeKind.IDENTIFIER && typeFromPrimitiveActionScriptType.hasOwnProperty(constructorExpression.text)) {
+            // 'instanceof' doesn't work for primitive types, so we have to resort to 'typeof' instead
+            emitter.insert('typeof ');
+            visitNode(emitter, node.children[0]);
+            emitter.catchup(is.start);
+            emitter.insert('===');
+            emitter.skipTo(is.end);
+            emitter.catchup(constructorExpression.start);
+            emitter.insert(`'${typeFromPrimitiveActionScriptType[constructorExpression.text]}'`);
+            emitter.skipTo(constructorExpression.end);
+        } else {
+            visitNode(emitter, valueExpression);
+            emitter.catchup(is.start);
+            emitter.insert(Keywords.INSTANCE_OF);
+            emitter.skipTo(is.end);
+            visitNode(emitter, constructorExpression);
+        }
+
+        return;
+    }
+
     visitNodes(emitter, node.children);
 }
 
 function emitOp(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    if (node.text === Keywords.IS) {
-        emitter.insert(Keywords.INSTANCE_OF);
-        emitter.skipTo(node.end);
-        return;
-    }
     emitter.catchup(node.end);
 }
 

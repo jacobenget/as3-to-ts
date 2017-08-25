@@ -51,6 +51,7 @@ enum NodeKind {
     INCLUDE,
     INIT,
     INTERFACE,
+    IS,
     ITER,
     LAMBDA,
     LEFT_CURLY_BRACKET,
