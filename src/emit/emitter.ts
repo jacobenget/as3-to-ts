@@ -149,29 +149,16 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
 };
 
 function emitAssign(emitter: Emitter, node: Node) {
-    const kids = node.children[0].findChildren(NodeKind.LITERAL);
-    let attributeAssign = false;
-
-    // console.log('ASSIGN:', drawNode(node));
-
-    if (node.children[0].kind === NodeKind.DOT) {
-        const dotRoot = node.children[0];
-        if (dotRoot.children[1].text === '@') {
-            attributeAssign = true;
-        }
-
-        emitter.finalNode.push(dotRoot.children[1]);
-    } else {
-        emitter.finalNode.push(null);
-    }
-
     emitter.inAssign += 1;
 
     let accessingXML = false;
     let leaf = node.children[0];
 
     if (leaf.kind === NodeKind.DOT || leaf.kind === NodeKind.ARRAY_ACCESSOR) {
-        while (leaf.kind === NodeKind.DOT || leaf.kind === NodeKind.ARRAY_ACCESSOR) {
+        while (
+            leaf.kind === NodeKind.DOT ||
+            leaf.kind === NodeKind.ARRAY_ACCESSOR
+        ) {
             leaf = leaf.children[0];
         }
 
@@ -189,6 +176,9 @@ function emitAssign(emitter: Emitter, node: Node) {
     emitter.isAccessingXML.push(accessingXML);
 
     visitNode(emitter, node.children[0]);
+
+    emitter.inAssign -= 1;
+
     if (accessingXML) {
         emitter.skipTo(node.children[2].start);
         emitter.insert(', ');
@@ -201,8 +191,7 @@ function emitAssign(emitter: Emitter, node: Node) {
     } else {
         emitter.catchup(node.end);
     }
-    emitter.inAssign -= 1;
-    emitter.finalNode.pop();
+    // emitter.inAssign -= 1;
     emitter.isAccessingXML.pop();
 }
 
@@ -216,11 +205,6 @@ export function visitNode(emitter: Emitter, node: Node): void {
     if (!node) {
         return;
     }
-
-    console.log(
-        `N: ${NodeKind[node.kind]}`,
-        emitter.source.slice(node.start, node.end)
-    );
 
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
@@ -300,7 +284,6 @@ export default class Emitter {
     public inAssign: number = 0;
     public dotChainDepth: number = 0;
     public settingChild: boolean = false;
-    public finalNode: Node[] = [];
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -463,7 +446,6 @@ export default class Emitter {
     }
 
     insert(str: string): void {
-        console.log(str);
         this.output += str;
 
         // Debug util (comment out on production).
@@ -1421,16 +1403,6 @@ function emitNew(emitter: Emitter, node: Node): void {
 }
 
 function emitArrayAccessor(emitter: Emitter, node: Node) {
-    // console.log('ARRAY ACCESSOR:', drawNode(node));
-
-    if (node.children[0].kind === NodeKind.DOT) {
-        const dotRoot = node.children[0];
-
-        emitter.finalNode.push(dotRoot.children[1]);
-    } else {
-        emitter.finalNode.push(null);
-    }
-
     if (emitter.source[node.start - 2] === '.') {
         emitter.catchup(node.start - 1);
         emitter.skip(1);
@@ -1456,8 +1428,6 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
     if (accessingXML && emitter.settingChild) {
         emitter.skipTo(node.children[1].end);
     }
-
-    emitter.finalNode.pop();
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
@@ -1687,6 +1657,8 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         emitter.insert(def.bound + '.');
     }
 
+    let thisAttached = false;
+
     if (
         !def &&
         emitter.currentClassName &&
@@ -1700,6 +1672,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
                 emitter.ensureImportIdentifier(node.text);
             }
         } else if (emitter.emitThisForNextIdent) {
+            thisAttached = true;
             // Identifier belongs to `this.` scope.
             if (emitter.inE4X) {
                 emitter.insert('n$.');
@@ -1711,25 +1684,23 @@ export function emitIdent(emitter: Emitter, node: Node): void {
 
     node.text = emitter.getIdentifierRemap(node.text) || node.text;
 
+    const decl = emitter.scope.declarations.find(n => n.name === node.text);
     if (emitter.inE4X) {
         let nodeVal = node.text;
 
-        // if (node.text[0] === '@') {
-        //     emitter.insert(
-        //         `${emitter.inAssign
-        //             ? 'setAttribute'
-        //             : 'attribute'}('${node.text.slice(1)}')`
-        //     );
-        // } else {
-        emitter.insert(node.text);
-        // }
+        if (node.text[0] === '@') {
+            emitter.insert(`attribute('${node.text.slice(1)}')`);
+        } else if (thisAttached && !isXMLMethod(node.text)) {
+            emitter.insert(`child('${node.text}')`);
+        } else {
+            emitter.insert(node.text);
+        }
     } else {
         emitter.insert(node.text);
     }
 
     emitter.skipTo(node.end);
 
-    const decl = emitter.scope.declarations.find(n => n.name === node.text);
     emitter.emitThisForNextIdent = true;
 }
 
@@ -1822,8 +1793,6 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    const lastNode = emitter.finalNode[emitter.finalNode.length - 1];
-
 
     emitter.insert(node.text);
 

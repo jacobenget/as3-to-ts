@@ -1,6 +1,7 @@
 import Node, { createNode } from '../syntax/node';
 import NodeKind from '../syntax/nodeKind';
 import Emitter, { EmitterOptions, visitNode } from '../emit/emitter';
+import { isXMLMethod } from '../emit/lib';
 
 function visit(emitter: Emitter, node: Node): boolean {
     let transformed = false;
@@ -21,7 +22,8 @@ function visit(emitter: Emitter, node: Node): boolean {
             }
         }
 
-        if (!accessingXML) {
+        const sibling = leaf.parent.children[1];
+        if (!accessingXML && !(sibling.text && sibling.text[0] === '@')) {
             return false;
         }
 
@@ -33,20 +35,37 @@ function visit(emitter: Emitter, node: Node): boolean {
         visitNode(emitter, node.children[0]);
         const child = node.children[1];
 
-        if (child.kind !== NodeKind.LITERAL) {
-            throw new Error('Was never expecting this to be not true');
+        if (isXMLMethod(child.text)) {
+            emitter.catchup(node.end);
+            emitter.isAccessingXML.pop();
+            emitter.dotChainDepth -= 1;
+            return true;
         }
 
-        let text = '';
-        const isAttribute = child.text[0] === '@';
+        // if (child.kind !== NodeKind.LITERAL && child.kind !== NodeKind.IDENTIFIER && child.kind !== NodeKind.ARRAY_ACCESSOR) {
+        //     console.log(node.toString())
+        //     throw new Error('Was never expecting this to be not true');
+        // }
 
-        if (node.kind === NodeKind.DOT) {
+        let text = '';
+        const isAttribute = child.text && child.text[0] === '@';
+
+        if (node.kind === NodeKind.ARRAY_ACCESSOR) {
+            emitter.skip(1);
+        }
+
+        if (node.kind === NodeKind.DOT && child.kind === NodeKind.LITERAL) {
             emitter.catchup(child.start);
             text = `'${child.text.slice(isAttribute ? 1 : 0)}'`;
-        } else {
+        } else if (child.kind === NodeKind.LITERAL || child.kind == NodeKind.IDENTIFIER) {
             emitter.insert('.');
             text = child.text;
-        }       
+        // } else if (child.kind === NodeKind.ARRAY_ACCESSOR) {
+        //     emitter.insert('.');
+        //     emitter.skip(1);
+        } else {
+            emitter.insert('.');
+        }     
 
         if (emitter.inAssign && emitter.dotChainDepth === 1) { 
             if (isAttribute) {
@@ -54,57 +73,28 @@ function visit(emitter: Emitter, node: Node): boolean {
             } else {
                 emitter.insert(`setChild(${text}`);
             }
+
+            if (!text) {
+                visitNode(emitter, child);
+                emitter.catchup(child.end);
+            }
+
         } else {
             if (isAttribute) {
-                emitter.insert(`attribute(${text})`);
+                emitter.insert(`attribute(${text}`);
             } else {
-                emitter.insert(`child(${text})`);
+                emitter.insert(`child(${text}`);
             }
+
+            if (!text) {
+                visitNode(emitter, child);
+                emitter.catchup(child.end);
+            }
+
+            emitter.insert(')');
         }
 
         emitter.skipTo(node.end);
-
-        // if (node.text[0] === '@') {
-        //     emitter.insert(
-        //         `${lastNode === node
-        //             ? 'setAttribute'
-        //             : 'attribute'}('${node.text.slice(1)}'`
-        //     );
-
-        //     if (lastNode !== node) {
-        //         emitter.insert(')');
-        //     }
-        // } else {
-        //     const accessingXML =
-        //         emitter.isAccessingXML[emitter.isAccessingXML.length - 1];
-        //     console.log('Accessing:', accessingXML);
-        //     if (emitter.dotChainDepth && accessingXML && !isXMLMethod(node.text)) {
-        //         console.log('CHILD:', emitter.inAssign, emitter.dotChainDepth);
-        //         console.log('NODE:', node);
-        //         console.log('Last Node:', lastNode);
-        //         if (
-        //             node === lastNode &&
-        //             emitter.inAssign &&
-        //             emitter.dotChainDepth === 1
-        //         ) {
-        //             emitter.insert(`setChild('${node.text}'`);
-        //             emitter.settingChild = true;
-        //         } else {
-        //             emitter.insert(`child('${node.text}')`);
-        //             emitter.settingChild = false;
-        //             // if (emitter.childIndex) {
-        //             //     const idx = emitter.childIndex;
-        //             //     emitter.childIndex = null;
-        //             //     // emitter.emit(idx);
-        //             //     emitter.insert(', ');
-        //             // }
-        //         }
-        //     } else {
-        //         emitter.insert(node.text);
-        //     }
-        // }
-
-        // visitNodes(emitter, node.children);
 
         emitter.isAccessingXML.pop();
         emitter.dotChainDepth -= 1;
