@@ -5,7 +5,7 @@ import * as Operators from '../syntax/operators'
 import Token from './token';
 import AS3Parser, {nextToken, nextTokenAllowNewLine, tryParse, consume, skip, tokIs} from './parser';
 import {parseExpressionList, parseExpression, parsePrimaryExpression} from './parse-expressions';
-import {parseVarList, parseConstList} from './parse-declarations';
+import {parseVarList, parseConstList, parseImport} from './parse-declarations';
 import {parseBlock, parseNameTypeInit} from './parse-common';
 import {NEW_LINE, MULTIPLE_LINES_COMMENT} from './parser';
 import {startsWith} from '../string';
@@ -45,6 +45,8 @@ export function parseStatement(parser:AS3Parser):Node {
         result = parseBreakOrContinueStatement(parser);
     } else if (tokIs(parser, Operators.SEMI_COLUMN)) {
         result = parseEmptyStatement(parser);
+    } else if (tokIs(parser, Keywords.IMPORT)) {
+        result = parseImport(parser);
     } else {
         result = parseExpressionList(parser);
         skip(parser, Operators.SEMI_COLUMN);

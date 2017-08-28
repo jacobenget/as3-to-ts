@@ -6,7 +6,6 @@ import { CustomVisitor } from '../custom-visitors';
 import { VERBOSE, WARNINGS } from '../config';
 import * as Operators from '../syntax/operators';
 import * as assert from 'assert';
-import { isXMLMethod } from './lib';
 
 const util = require('util');
 
@@ -51,7 +50,12 @@ const GLOBAL_NAMES = [
     'ReferenceError',
     'SyntaxError',
     'TypeError',
-    'URIError'
+    'URIError',
+    'Element',
+    'DOMParser',
+    'Document',
+    'Node',
+    'Attr'
 ];
 
 const TYPE_REMAP: { [id: string]: string } = {
@@ -156,6 +160,7 @@ export function visitNode(emitter: Emitter, node: Node): void {
     if (!node) {
         return;
     }
+
 
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
@@ -841,12 +846,100 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
+
+function hasStaticModifer(setOrGetNode: Node): boolean {
+    return (
+        setOrGetNode
+            .findChild(NodeKind.MOD_LIST)
+            .findChildren(NodeKind.MODIFIER)
+            .filter(modifier => modifier.text === Keywords.STATIC).length > 0
+    );
+}
+
 function emitFunction(emitter: Emitter, node: Node): void {
-    emitDeclaration(emitter, node);
-    emitter.withScope(getFunctionDeclarations(emitter, node), () => {
-        let rest = node.getChildFrom(NodeKind.MOD_LIST);
-        visitNodes(emitter, rest);
+    assert(node.kind === NodeKind.FUNCTION || node.kind === NodeKind.LAMBDA);
+
+    // figure out if we are we inside a class function definition
+    // Note: "ActionScript 3.0 supports neither nested nor private classes" (http://help.adobe.com/en_US/ActionScript/3.0_ProgrammingAS3/WS5b3ccc516d4fbf351e63e3d118a9b90204-7f9e.html)
+    // so if we're inside a class function definition we must be inside only ONE class function definition, and we can just find the first one
+    let classFunctionContainingThisFunction = node.getParentChain().find(ancestor => {
+        if (ancestor.kind === NodeKind.FUNCTION) {
+            return (
+                // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
+                ancestor.parent.kind === NodeKind.CONTENT &&
+                ancestor.parent.parent.kind == NodeKind.CLASS
+            );
+        }
+        return false;
     });
+
+    if (node.text != null) {
+        emitter.declareInScope({name: node.text});
+    }
+
+    if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
+        // we're emitting a function that's defined inside a member function,
+        // meaning that the object that this member function is being called upon has it's member variables in scope,
+        // so we should transform this function declaration into a fat arrow function to capture the value of 'this'
+        // (elsewhere, the emitter will be prepending 'this' to references to variables that weren't defined lcoally)
+
+        // assert that there is no reason to call 'emitDeclaration', because there's no metadata or modifications on this function
+        assert(node.findChild(NodeKind.META_LIST) === null);
+        assert(node.findChild(NodeKind.MOD_LIST) === null);
+
+        // assume a certain structure for the children
+        assert(node.children.length === 3);
+        assert(node.children[0].kind === NodeKind.PARAMETER_LIST);
+        assert(node.children[1].kind === NodeKind.VECTOR || node.children[1].kind === NodeKind.TYPE);
+        assert(node.children[2].kind === NodeKind.BLOCK);
+
+        let parameterList = node.children[0];
+        let returnType = node.children[1];
+        let functionBody = node.children[2];
+
+        emitter.catchup(node.start);
+
+        if (node.parent.kind === NodeKind.BLOCK) {
+            let functionName = node.text;
+            assert(functionName != null);
+            emitter.insert(`let ${functionName} = `);
+        } else if (node.text != null) {
+            // this function, whose definition doesn't not appear as a statement, has a name
+            // which means we have a possible recursive lambda (which we can't easily replace with a fat arrow function,
+            // because we need to generate a statement to assign a name to this lambda, and this fat arrow function doesn't appear at a statement level, make it harder to figure out where to put the statement)
+
+            // search for the function's name within the function body to see if this function might be recursive
+            let functionName = node.text;
+            let functionBodySource = emitter.sourceBetween(functionBody.start, functionBody.end);
+            let functionMightBeRecursive = new RegExp(String.raw`\b${functionName}\b`).test(functionBodySource);
+            assert(!functionMightBeRecursive, `Lambda function named ${node.text} appears to be recursive, so replacing it with a fat-arrow function would be an error`);
+        }
+
+        emitter.withScope(getFunctionDeclarations(emitter, node), () => {
+            emitter.consume(Keywords.FUNCTION, parameterList.start);
+            // skip all whitespace appearing after Keywords.FUNCTION
+            while (/\s/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
+                emitter.skip(1);
+            }
+            emitter.skipTo(parameterList.start);
+            visitNode(emitter, parameterList);
+            visitNode(emitter, returnType);
+            emitter.catchup(functionBody.start);
+            // ensure there's some whitespace between the return type and the fat arrow
+            if (/\S/.test(emitter.output.slice(-1))) {
+                emitter.insert(' ');
+            }
+            emitter.insert('=> ');
+            visitNode(emitter, functionBody);
+
+        });
+    } else {
+        emitDeclaration(emitter, node);
+        emitter.withScope(getFunctionDeclarations(emitter, node), () => {
+            let rest = node.getChildFrom(NodeKind.MOD_LIST);
+            visitNodes(emitter, rest);
+        });
+    }
 }
 
 function emitForIn(emitter: Emitter, node: Node): void {
@@ -1131,16 +1224,6 @@ function emitMethod(emitter: Emitter, node: Node): void {
             // TypeScript does not allow this, so the types of the 'get' and 'set' methods need to match.
             // Fix here involves ignoring the type on the 'get' and using the type on the 'set' for the 'get' instead
 
-            let hasStaticModifer = function(setOrGetNode: Node): boolean {
-                return (
-                    setOrGetNode
-                        .findChild(NodeKind.MOD_LIST)
-                        .findChildren(NodeKind.MODIFIER)
-                        .filter(modifier => modifier.text === 'static').length >
-                    0
-                );
-            };
-
             let getIsStatic = hasStaticModifer(node);
 
             // find all 'set' nodes that appear in the same class, that have the same name, and are the same 'static-ness'
@@ -1381,11 +1464,9 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
-    let isNew = emitter.isNew;
-    emitter.isNew = false;
-
     if (node.children[0].kind === NodeKind.VECTOR) {
-        if (isNew) {
+        if (emitter.isNew) {
+            emitter.isNew = false;
             let vector = node.children[0];
             let args = node.children[1];
             emitter.insert('[');
@@ -1411,8 +1492,8 @@ function emitCall(emitter: Emitter, node: Node): void {
             }
         }
     } else {
-        if (!isNew && isCast(emitter, node)) {
-            // console.log('IS CAST');
+        if (!emitter.isNew && isCast(emitter, node)) {
+            console.log('IS CAST');
             const type: Node = node.findChild(NodeKind.IDENTIFIER);
             const args: Node = node.findChild(NodeKind.ARGUMENTS);
             const rtype: string = emitter.getTypeRemap(type.text) || type.text;
@@ -1437,7 +1518,11 @@ function emitCall(emitter: Emitter, node: Node): void {
         }
     }
 
-    visitNodes(emitter, node.children);
+    // emit the expression that represents the function that is being called
+    visitNode(emitter, node.children[0]);
+    // now that the expression representing the function has been emitted, we can consider ourselves no longer emitting an effective part of a 'new' statement
+    emitter.isNew = false;
+    visitNodes(emitter, node.children.slice(1));
 }
 
 function isCast(emitter: Emitter, node: Node): boolean {
@@ -1562,16 +1647,46 @@ function emitRelation(emitter: Emitter, node: Node): void {
         }
         return;
     }
+
+    let is = node.findChild(NodeKind.IS);
+    if (is) {
+        assert(node.children.length === 3 && node.children[1].kind == NodeKind.IS);
+
+        let valueExpression = node.children[0];
+        let constructorExpression = node.children[2];
+
+        let typeFromPrimitiveActionScriptType : { [id: string]: string } = {
+            String: 'string',
+            Number: 'number',
+            Boolean: 'boolean',
+        };
+
+        if (constructorExpression.kind === NodeKind.IDENTIFIER && typeFromPrimitiveActionScriptType.hasOwnProperty(constructorExpression.text)) {
+            // 'instanceof' doesn't work for primitive types, so we have to resort to 'typeof' instead
+            emitter.insert('typeof ');
+            visitNode(emitter, node.children[0]);
+            emitter.catchup(is.start);
+            emitter.insert('===');
+            emitter.skipTo(is.end);
+            emitter.catchup(constructorExpression.start);
+            emitter.insert(`'${typeFromPrimitiveActionScriptType[constructorExpression.text]}'`);
+            emitter.skipTo(constructorExpression.end);
+        } else {
+            visitNode(emitter, valueExpression);
+            emitter.catchup(is.start);
+            emitter.insert(Keywords.INSTANCE_OF);
+            emitter.skipTo(is.end);
+            visitNode(emitter, constructorExpression);
+        }
+
+        return;
+    }
+
     visitNodes(emitter, node.children);
 }
 
 function emitOp(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    if (node.text === Keywords.IS) {
-        emitter.insert(Keywords.INSTANCE_OF);
-        emitter.skipTo(node.end);
-        return;
-    }
     emitter.catchup(node.end);
 }
 
@@ -1650,7 +1765,6 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     }
 
     emitter.skipTo(node.end);
-
     emitter.emitThisForNextIdent = true;
 }
 
@@ -1704,6 +1818,7 @@ function emitE4XAttr(emitter: Emitter, node: Node): void {
 function emitE4XFilter(emitter: Emitter, node: Node): void {
     const filter = node.children[node.children.length - 1];
     const lastKid = filter.children[filter.children.length - 1];
+
     // if (!filter.children[0].text) {
     //     console.log("Empty:", drawNode(node));
     //     return;
@@ -1714,8 +1829,6 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     emitter.insert(`filter((n$) => `);
 
     emitter.inE4X = true;
-
-    emitter.skipTo(node.start);
 
     visitNodes(emitter, node.children);
 

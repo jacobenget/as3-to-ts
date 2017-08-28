@@ -278,10 +278,12 @@ function parseRelationalExpression(parser:AS3Parser):Node {
     || tokIs(parser, Operators.SUPERIOR_AS2) || tokIs(parser, Operators.SUPERIOR_OR_EQUAL)
     || tokIs(parser, Operators.SUPERIOR_OR_EQUAL_AS2) || tokIs(parser, Keywords.IS) || tokIs(parser, Keywords.IN)
     && !parser.isInFor || tokIs(parser, Keywords.AS) || tokIs(parser, Keywords.INSTANCE_OF)) {
-        if (!tokIs(parser, Keywords.AS)) {
-            result.children.push(createNode(NodeKind.OP, {tok: parser.tok}));
-        } else {
+        if (tokIs(parser, Keywords.AS)) {
             result.children.push(createNode(NodeKind.AS, {tok: parser.tok}));
+        } else if (tokIs(parser, Keywords.IS)) {
+            result.children.push(createNode(NodeKind.IS, {tok: parser.tok}));
+        } else {
+            result.children.push(createNode(NodeKind.OP, {tok: parser.tok}));
         }
         nextToken(parser, true);
         result.children.push(parseShiftExpression(parser));
@@ -542,6 +544,7 @@ function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
         result.children.push(parseExpression(parser));
         result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
     }
+    console.log(drawNode(result));
     return result;
 }
 
