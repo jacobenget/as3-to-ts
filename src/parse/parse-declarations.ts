@@ -24,6 +24,8 @@ export function parseCompilationUnit(parser:AS3Parser):Node {
         result.children.push(parsePackage(parser));
     }
     result.children.push(parsePackageContent(parser));
+    // For whatever reason, the start/end are broken on some of the parsed nodes. 
+    //	This fixes some of those. 
     validateNodes(result);
     return result;
 }

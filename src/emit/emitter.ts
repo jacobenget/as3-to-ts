@@ -259,8 +259,6 @@ export default class Emitter {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
 
-        console.log(drawNode(ast));
-
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
             visitNode(this, filterAST(ast));
@@ -1447,7 +1445,6 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
     visitNode(emitter, node.children[0]);
     const prevDepth = emitter.dotChainDepth;
 
-    // console.log('DOT CHAIN DEPTH:', emitter.dotChainDepth)
     const accessingXML =
         emitter.isAccessingXML[emitter.isAccessingXML.length - 1];
     if (accessingXML && emitter.settingChild) {
@@ -1820,11 +1817,6 @@ function emitE4XFilter(emitter: Emitter, node: Node): void {
     const filter = node.children[node.children.length - 1];
     const lastKid = filter.children[filter.children.length - 1];
 
-    // if (!filter.children[0].text) {
-    //     console.log("Empty:", drawNode(node));
-    //     return;
-    //     // throw new Error('Text');
-    // }
 
     emitter.catchup(node.start - 1);
     emitter.insert(`filter((n$) => `);
@@ -1887,23 +1879,4 @@ export function emit(
     return emitter.emit(ast);
 }
 
-function drawNode(node: Node, depth = 0): string {
-    let t = '';
 
-    for (let i = 0; i < depth; i += 1) {
-        t += '   ';
-    }
-
-    t += `${NodeKind[node.kind]}:${(node.text &&
-        node.text.replace(/\n/g, '\\n')) ||
-        ''}\n`;
-
-    for (const child of node.children) {
-        if (child) {
-            t += drawNode(child, depth + 1);
-        }
-    }
-
-    return t;
-    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
-}
