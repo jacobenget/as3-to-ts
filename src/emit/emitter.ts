@@ -143,57 +143,8 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.ARRAY]: emitArray,
     [NodeKind.E4X_ATTR]: emitE4XAttr,
     [NodeKind.E4X_FILTER]: emitE4XFilter,
-    [NodeKind.E4X_STAR]: emitE4XAttr,
-    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
-    [NodeKind.ASSIGN]: emitAssign
+    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor
 };
-
-function emitAssign(emitter: Emitter, node: Node) {
-    emitter.inAssign += 1;
-
-    let accessingXML = false;
-    let leaf = node.children[0];
-
-    if (leaf.kind === NodeKind.DOT || leaf.kind === NodeKind.ARRAY_ACCESSOR) {
-        while (
-            leaf.kind === NodeKind.DOT ||
-            leaf.kind === NodeKind.ARRAY_ACCESSOR
-        ) {
-            leaf = leaf.children[0];
-        }
-
-        const ident = leaf;
-        if (ident.kind === NodeKind.IDENTIFIER) {
-            const decl = emitter.scope.declarations.find(
-                n => n.name === ident.text
-            );
-            if (decl && decl.type === 'XML') {
-                accessingXML = true;
-            }
-        }
-    }
-
-    emitter.isAccessingXML.push(accessingXML);
-
-    visitNode(emitter, node.children[0]);
-
-    emitter.inAssign -= 1;
-
-    if (accessingXML) {
-        emitter.skipTo(node.children[2].start);
-        emitter.insert(', ');
-    }
-
-    visitNode(emitter, node.children[2]);
-    if (accessingXML) {
-        emitter.insert(')');
-        emitter.catchup(node.children[2].end);
-    } else {
-        emitter.catchup(node.end);
-    }
-    // emitter.inAssign -= 1;
-    emitter.isAccessingXML.pop();
-}
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
     if (nodes) {
@@ -281,7 +232,6 @@ export default class Emitter {
 
     public inE4X: boolean = false;
     public isAccessingXML: boolean[] = [];
-    public inAssign: number = 0;
     public dotChainDepth: number = 0;
     public settingChild: boolean = false;
 
@@ -1746,7 +1696,10 @@ function emitDot(emitter: Emitter, node: Node) {
     emitter.dotChainDepth -= 1;
 }
 
-function emitE4XAttr(emitter: Emitter, node: Node): void {}
+function emitE4XAttr(emitter: Emitter, node: Node): void {
+    emitter.catchup(node.start);
+    visitNodes(emitter, node.children);
+}
 
 function emitE4XFilter(emitter: Emitter, node: Node): void {
     const filter = node.children[node.children.length - 1];
@@ -1793,8 +1746,8 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-
-    emitter.insert(node.text);
+    
+        emitter.insert(node.text);
 
     emitter.skipTo(node.end);
 }

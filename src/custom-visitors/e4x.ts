@@ -1,29 +1,88 @@
 import Node, { createNode } from '../syntax/node';
 import NodeKind from '../syntax/nodeKind';
-import Emitter, { EmitterOptions, visitNode } from '../emit/emitter';
+import Emitter, { EmitterOptions, visitNode, visitNodes } from '../emit/emitter';
 import { isXMLMethod } from '../emit/lib';
+
+function isAccessor(node: Node) {
+    return node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR;
+}
+
+function findLeafNode(leaf: Node) {
+    while ((isAccessor(leaf) || leaf.kind === NodeKind.E4X_ATTR) && leaf.children.length) {
+        leaf = leaf.children[0];
+    }
+
+    return leaf;
+}
+
+function isXMLRoot(emitter: Emitter, node: Node) {
+    let leaf = findLeafNode(node);
+
+    if (leaf.kind === NodeKind.IDENTIFIER) {
+        const decl = emitter.scope.declarations.find(
+            n => n.name === leaf.text
+        );
+        if (decl && decl.type === 'XML') {
+            return true;
+        }
+    } 
+
+    const sibling = leaf.parent.children[1];
+    if (sibling && sibling.text && sibling.text[0] === '@') {
+        return true;
+    }
+
+    if (node.children[1] && node.children[1].text && node.children[1].text[0] === '@') {
+        return true;
+    }
+
+    return false;    
+}
+
+
+let inAssign = 0;
+let inDelete = false;
 
 function visit(emitter: Emitter, node: Node): boolean {
     let transformed = false;
 
-    if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR) {
-        let accessingXML = false;
-        let leaf = node;
-        while ((leaf.kind == NodeKind.ARRAY_ACCESSOR || leaf.kind === NodeKind.DOT) && leaf.children.length) {
-            leaf = leaf.children[0];
-        }
+    if (node.kind === NodeKind.ASSIGN) {
+        const lhs = node.children[0];
+        const rhs = node.children[2];
+        if (isAccessor(lhs) && isXMLRoot(emitter, lhs)) {
 
-        if (leaf.kind === NodeKind.IDENTIFIER) {
-            const decl = emitter.scope.declarations.find(
-                n => n.name === leaf.text
-            );
-            if (decl && decl.type === 'XML') {
-                accessingXML = true;
-            }
-        }
+            inAssign += 1;
+            visitNode(emitter, lhs);
+            inAssign -= 1;
+            emitter.insert(', ');
+            emitter.skipTo(rhs.start);
+            visitNode(emitter, rhs);
+            
+            emitter.insert(')')
 
+            transformed = true;
+        } else {
+            return false;
+        }
+    } else if (node.kind === NodeKind.E4X_ATTR) {
+        visitNodes(emitter, node.children);
+        return true;
+    } else if (node.kind === NodeKind.DELETE) {
+        const deleteTarget = node.children[0];
+        if (isXMLRoot(emitter, deleteTarget)) {
+            inDelete = true;
+            emitter.catchup(node.start); 
+            emitter.skipTo(node.end); 
+            visitNode(emitter, deleteTarget);
+            inDelete = false;
+            transformed = true;
+        }
+   } else if (isAccessor(node)) {
+        let accessingXML = isXMLRoot(emitter, node);
+        const leaf = findLeafNode(node);
         const sibling = leaf.parent.children[1];
-        if (!accessingXML && !(sibling.text && sibling.text[0] === '@')) {
+
+        if (!accessingXML) {
             return false;
         }
 
@@ -42,13 +101,8 @@ function visit(emitter: Emitter, node: Node): boolean {
             return true;
         }
 
-        // if (child.kind !== NodeKind.LITERAL && child.kind !== NodeKind.IDENTIFIER && child.kind !== NodeKind.ARRAY_ACCESSOR) {
-        //     console.log(node.toString())
-        //     throw new Error('Was never expecting this to be not true');
-        // }
-
         let text = '';
-        const isAttribute = child.text && child.text[0] === '@';
+        const isAttribute = (child.text && child.text[0] === '@') || (node.children[0].kind === NodeKind.E4X_ATTR);
 
         if (node.kind === NodeKind.ARRAY_ACCESSOR) {
             emitter.skip(1);
@@ -60,14 +114,12 @@ function visit(emitter: Emitter, node: Node): boolean {
         } else if (child.kind === NodeKind.LITERAL || child.kind == NodeKind.IDENTIFIER) {
             emitter.insert('.');
             text = child.text;
-        // } else if (child.kind === NodeKind.ARRAY_ACCESSOR) {
-        //     emitter.insert('.');
-        //     emitter.skip(1);
         } else {
             emitter.insert('.');
         }     
 
-        if (emitter.inAssign && emitter.dotChainDepth === 1) { 
+
+        if (inAssign && emitter.dotChainDepth === 1) { 
             if (isAttribute) {
                 emitter.insert(`setAttribute(${text}`);
             } else {
@@ -78,6 +130,20 @@ function visit(emitter: Emitter, node: Node): boolean {
                 visitNode(emitter, child);
                 emitter.catchup(child.end);
             }
+        } else if (inDelete && emitter.dotChainDepth === 1) {
+            if (isAttribute) {
+                emitter.insert(`removeAttributeByName(${text}`)
+            } else {
+                emitter.insert(`removeChildByName(${text}`)
+            }
+
+            if (!text) {
+                visitNode(emitter, child);
+                emitter.catchup(child.end);
+            }
+
+            emitter.insert(')');
+
 
         } else {
             if (isAttribute) {
