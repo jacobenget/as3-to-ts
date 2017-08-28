@@ -6,6 +6,7 @@ import { CustomVisitor } from '../custom-visitors';
 import { VERBOSE, WARNINGS } from '../config';
 import * as Operators from '../syntax/operators';
 import * as assert from 'assert';
+import { isXMLMethod } from './lib';
 
 const util = require('util');
 
