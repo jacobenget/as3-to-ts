@@ -145,7 +145,6 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.DOT]: emitDot,
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
-    [NodeKind.E4X_ATTR]: emitE4XAttr,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor
 };
 
@@ -1790,11 +1789,6 @@ function emitDot(emitter: Emitter, node: Node) {
         // TODO: allow conditional compilation for function/class definitions
     }
 
-    visitNodes(emitter, node.children);
-}
-
-function emitE4XAttr(emitter: Emitter, node: Node): void {
-    emitter.catchup(node.start);
     visitNodes(emitter, node.children);
 }
 
