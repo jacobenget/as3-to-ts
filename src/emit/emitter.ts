@@ -147,7 +147,6 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
     [NodeKind.E4X_ATTR]: emitE4XAttr,
-    [NodeKind.E4X_FILTER]: emitE4XFilter,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor
 };
 
@@ -258,6 +257,8 @@ export default class Emitter {
         if (VERBOSE >= 1) {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
+
+        console.log(drawNode(ast));
 
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
@@ -1813,37 +1814,6 @@ function emitE4XAttr(emitter: Emitter, node: Node): void {
     visitNodes(emitter, node.children);
 }
 
-function emitE4XFilter(emitter: Emitter, node: Node): void {
-    const filter = node.children[node.children.length - 1];
-    const lastKid = filter.children[filter.children.length - 1];
-
-
-    emitter.catchup(node.start - 1);
-    emitter.insert(`filter((n$) => `);
-
-    emitter.inE4X = true;
-
-    visitNodes(emitter, node.children);
-
-    emitter.inE4X = false;
-
-    emitter.insert(')');
-
-    emitter.skipTo(node.end);
-
-    // emitter.
-
-    // const name = filter.children[0].text.slice(1);
-    // const start = filter.children[0].text[0];
-
-    // if (start === "@") {
-    // emitter.insert(`filter((n$) => n$.attribute('${name}')`);
-    // } else {
-    //     throw new Error("Not supported yet");
-    //     // emitter.insert(`filter((n$) => n$.attribute('${name}')`)
-    // }
-}
-
 function emitXMLLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
     emitter.insert(JSON.stringify(node.text));
@@ -1880,3 +1850,23 @@ export function emit(
 }
 
 
+function drawNode(node: Node, depth = 0): string {
+    let t = '';
+
+    for (let i = 0; i < depth; i += 1) {
+        t += '   ';
+    }
+
+    t += `${NodeKind[node.kind]}:${(node.text &&
+        node.text.replace(/\n/g, '\\n')) ||
+        ''}\n`;
+
+    for (const child of node.children) {
+        if (child) {
+            t += drawNode(child, depth + 1);
+        }
+    }
+
+    return t;
+    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
+}
