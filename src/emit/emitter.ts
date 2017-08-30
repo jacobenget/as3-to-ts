@@ -6,11 +6,10 @@ import { CustomVisitor } from '../custom-visitors';
 import { VERBOSE, WARNINGS } from '../config';
 import * as Operators from '../syntax/operators';
 import * as assert from 'assert';
-import { isXMLMethod } from './lib';
 
 const util = require('util');
 
-const GLOBAL_NAMES = [
+export const GLOBAL_NAMES = [
     'undefined',
     'NaN',
     'Infinity',
@@ -59,7 +58,7 @@ const GLOBAL_NAMES = [
     'Attr'
 ];
 
-const TYPE_REMAP: { [id: string]: string } = {
+export const TYPE_REMAP: { [id: string]: string } = {
     Class: 'any', // 80pro: was mapped to 'Object' before
     Object: 'any',
     String: 'string',
@@ -161,7 +160,6 @@ export function visitNode(emitter: Emitter, node: Node): void {
         return;
     }
 
-
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
         let customVisitor = emitter.options.customVisitors[i];
@@ -235,10 +233,7 @@ export default class Emitter {
     public rootScope: Scope = null;
     public scope: Scope = null;
 
-    public inE4X: boolean = false;
-    public isAccessingXML: boolean[] = [];
-    public dotChainDepth: number = 0;
-    public settingChild: boolean = false;
+    // public dotChainDepth: number = 0;
 
     constructor(source: string, options?: EmitterOptions) {
         this.source = source;
@@ -257,8 +252,6 @@ export default class Emitter {
         if (VERBOSE >= 1) {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
-
-        console.log(drawNode(ast));
 
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
@@ -846,7 +839,6 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
-
 function hasStaticModifer(setOrGetNode: Node): boolean {
     return (
         setOrGetNode
@@ -862,22 +854,29 @@ function emitFunction(emitter: Emitter, node: Node): void {
     // figure out if we are we inside a class function definition
     // Note: "ActionScript 3.0 supports neither nested nor private classes" (http://help.adobe.com/en_US/ActionScript/3.0_ProgrammingAS3/WS5b3ccc516d4fbf351e63e3d118a9b90204-7f9e.html)
     // so if we're inside a class function definition we must be inside only ONE class function definition, and we can just find the first one
-    let classFunctionContainingThisFunction = node.getParentChain().find(ancestor => {
-        if (ancestor.kind === NodeKind.FUNCTION) {
-            return (
-                // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
-                ancestor.parent.kind === NodeKind.CONTENT &&
-                ancestor.parent.parent.kind == NodeKind.CLASS
-            );
-        }
-        return false;
-    });
+    let classFunctionContainingThisFunction = node
+        .getParentChain()
+        .find(ancestor => {
+            if (ancestor.kind === NodeKind.FUNCTION) {
+                return (
+                    // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
+                    ancestor.parent.kind === NodeKind.CONTENT &&
+                    ancestor.parent.parent.kind == NodeKind.CLASS
+                );
+            }
+            return false;
+        });
 
     if (node.text != null) {
-        emitter.declareInScope({name: node.text});
+        emitter.declareInScope({ name: node.text });
     }
 
-    if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
+    if (
+        !(
+            typeof classFunctionContainingThisFunction === 'undefined' ||
+            hasStaticModifer(classFunctionContainingThisFunction)
+        )
+    ) {
         // we're emitting a function that's defined inside a member function,
         // meaning that the object that this member function is being called upon has it's member variables in scope,
         // so we should transform this function declaration into a fat arrow function to capture the value of 'this'
@@ -890,7 +889,10 @@ function emitFunction(emitter: Emitter, node: Node): void {
         // assume a certain structure for the children
         assert(node.children.length === 3);
         assert(node.children[0].kind === NodeKind.PARAMETER_LIST);
-        assert(node.children[1].kind === NodeKind.VECTOR || node.children[1].kind === NodeKind.TYPE);
+        assert(
+            node.children[1].kind === NodeKind.VECTOR ||
+                node.children[1].kind === NodeKind.TYPE
+        );
         assert(node.children[2].kind === NodeKind.BLOCK);
 
         let parameterList = node.children[0];
@@ -910,15 +912,27 @@ function emitFunction(emitter: Emitter, node: Node): void {
 
             // search for the function's name within the function body to see if this function might be recursive
             let functionName = node.text;
-            let functionBodySource = emitter.sourceBetween(functionBody.start, functionBody.end);
-            let functionMightBeRecursive = new RegExp(String.raw`\b${functionName}\b`).test(functionBodySource);
-            assert(!functionMightBeRecursive, `Lambda function named ${node.text} appears to be recursive, so replacing it with a fat-arrow function would be an error`);
+            let functionBodySource = emitter.sourceBetween(
+                functionBody.start,
+                functionBody.end
+            );
+            let functionMightBeRecursive = new RegExp(
+                String.raw`\b${functionName}\b`
+            ).test(functionBodySource);
+            assert(
+                !functionMightBeRecursive,
+                `Lambda function named ${node.text} appears to be recursive, so replacing it with a fat-arrow function would be an error`
+            );
         }
 
         emitter.withScope(getFunctionDeclarations(emitter, node), () => {
             emitter.consume(Keywords.FUNCTION, parameterList.start);
             // skip all whitespace appearing after Keywords.FUNCTION
-            while (/\s/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
+            while (
+                /\s/.test(
+                    emitter.sourceBetween(emitter.index, emitter.index + 1)
+                )
+            ) {
                 emitter.skip(1);
             }
             emitter.skipTo(parameterList.start);
@@ -931,7 +945,6 @@ function emitFunction(emitter: Emitter, node: Node): void {
             }
             emitter.insert('=> ');
             visitNode(emitter, functionBody);
-
         });
     } else {
         emitDeclaration(emitter, node);
@@ -1443,23 +1456,7 @@ function emitArrayAccessor(emitter: Emitter, node: Node) {
         emitter.catchup(node.start);
     }
 
-    visitNode(emitter, node.children[0]);
-    const prevDepth = emitter.dotChainDepth;
-
-    const accessingXML =
-        emitter.isAccessingXML[emitter.isAccessingXML.length - 1];
-    if (accessingXML && emitter.settingChild) {
-        emitter.skipTo(node.children[1].start);
-        emitter.insert(', ');
-    }
-
-    emitter.dotChainDepth = 0;
-    visitNode(emitter, node.children[1]);
-    emitter.dotChainDepth = prevDepth;
-
-    if (accessingXML && emitter.settingChild) {
-        emitter.skipTo(node.children[1].end);
-    }
+    visitNodes(emitter, node.children);
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
@@ -1649,18 +1646,25 @@ function emitRelation(emitter: Emitter, node: Node): void {
 
     let is = node.findChild(NodeKind.IS);
     if (is) {
-        assert(node.children.length === 3 && node.children[1].kind == NodeKind.IS);
+        assert(
+            node.children.length === 3 && node.children[1].kind == NodeKind.IS
+        );
 
         let valueExpression = node.children[0];
         let constructorExpression = node.children[2];
 
-        let typeFromPrimitiveActionScriptType : { [id: string]: string } = {
+        let typeFromPrimitiveActionScriptType: { [id: string]: string } = {
             String: 'string',
             Number: 'number',
-            Boolean: 'boolean',
+            Boolean: 'boolean'
         };
 
-        if (constructorExpression.kind === NodeKind.IDENTIFIER && typeFromPrimitiveActionScriptType.hasOwnProperty(constructorExpression.text)) {
+        if (
+            constructorExpression.kind === NodeKind.IDENTIFIER &&
+            typeFromPrimitiveActionScriptType.hasOwnProperty(
+                constructorExpression.text
+            )
+        ) {
             // 'instanceof' doesn't work for primitive types, so we have to resort to 'typeof' instead
             emitter.insert('typeof ');
             visitNode(emitter, node.children[0]);
@@ -1668,7 +1672,11 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.insert('===');
             emitter.skipTo(is.end);
             emitter.catchup(constructorExpression.start);
-            emitter.insert(`'${typeFromPrimitiveActionScriptType[constructorExpression.text]}'`);
+            emitter.insert(
+                `'${typeFromPrimitiveActionScriptType[
+                    constructorExpression.text
+                ]}'`
+            );
             emitter.skipTo(constructorExpression.end);
         } else {
             visitNode(emitter, valueExpression);
@@ -1721,8 +1729,6 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         emitter.insert(def.bound + '.');
     }
 
-    let thisAttached = false;
-
     if (
         !def &&
         emitter.currentClassName &&
@@ -1736,32 +1742,14 @@ export function emitIdent(emitter: Emitter, node: Node): void {
                 emitter.ensureImportIdentifier(node.text);
             }
         } else if (emitter.emitThisForNextIdent) {
-            thisAttached = true;
             // Identifier belongs to `this.` scope.
-            if (emitter.inE4X) {
-                emitter.insert('n$.');
-            } else {
-                emitter.insert('this.');
-            }
+            emitter.insert('this.');
         }
     }
 
     node.text = emitter.getIdentifierRemap(node.text) || node.text;
 
-    const decl = emitter.scope.declarations.find(n => n.name === node.text);
-    if (emitter.inE4X) {
-        let nodeVal = node.text;
-
-        if (node.text[0] === '@') {
-            emitter.insert(`attribute('${node.text.slice(1)}')`);
-        } else if (thisAttached && !isXMLMethod(node.text)) {
-            emitter.insert(`child('${node.text}')`);
-        } else {
-            emitter.insert(node.text);
-        }
-    } else {
-        emitter.insert(node.text);
-    }
+    emitter.insert(node.text);
 
     emitter.skipTo(node.end);
     emitter.emitThisForNextIdent = true;
@@ -1802,11 +1790,7 @@ function emitDot(emitter: Emitter, node: Node) {
         // TODO: allow conditional compilation for function/class definitions
     }
 
-    emitter.dotChainDepth += 1;
-
     visitNodes(emitter, node.children);
-
-    emitter.dotChainDepth -= 1;
 }
 
 function emitE4XAttr(emitter: Emitter, node: Node): void {
@@ -1822,8 +1806,8 @@ function emitXMLLiteral(emitter: Emitter, node: Node): void {
 
 function emitLiteral(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
-    
-        emitter.insert(node.text);
+
+    emitter.insert(node.text);
 
     emitter.skipTo(node.end);
 }
@@ -1847,26 +1831,4 @@ export function emit(
 ): string {
     let emitter = new Emitter(source, options);
     return emitter.emit(ast);
-}
-
-
-function drawNode(node: Node, depth = 0): string {
-    let t = '';
-
-    for (let i = 0; i < depth; i += 1) {
-        t += '   ';
-    }
-
-    t += `${NodeKind[node.kind]}:${(node.text &&
-        node.text.replace(/\n/g, '\\n')) ||
-        ''}\n`;
-
-    for (const child of node.children) {
-        if (child) {
-            t += drawNode(child, depth + 1);
-        }
-    }
-
-    return t;
-    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
 }

@@ -46,3 +46,53 @@ export function isXMLRoot(emitter: Emitter, node: Node) {
 
     return false;
 }
+
+export function isXMLMethod(childName: string): boolean {
+    return (
+        [
+            'addNamespace',
+            'appendChild',
+            'attribute',
+            'attributes',
+            'child',
+            'childIndex',
+            'children',
+            'comments',
+            'contains',
+            'copy',
+            'defaultSettings',
+            'descendants',
+            'elements',
+            'hasComplexContent',
+            'hasOwnProperty',
+            'hasSimpleContent',
+            'inScopeNamespaces',
+            'insertChildAfter',
+            'insertChildBefore',
+            'length',
+            'localName',
+            'name',
+            'namespace',
+            'namespaceDeclarations',
+            'nodeKind',
+            'normalize',
+            'parent',
+            'prependChild',
+            'processingInstructions',
+            'propertyIsEnumerable',
+            'removeNamespace',
+            'replace',
+            'setChildren',
+            'setLocalName',
+            'setName',
+            'setNamespace',
+            'setSettings',
+            'settings',
+            'text',
+            'toJSON',
+            'toString',
+            'toXMLString',
+            'valueOf'
+        ].indexOf(childName) !== -1
+    );
+}
