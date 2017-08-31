@@ -149,7 +149,8 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.E4X_FILTER]: emitE4XFilter,
     [NodeKind.E4X_STAR]: emitE4XAttr,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
-    [NodeKind.ASSIGN]: emitAssign
+    [NodeKind.ASSIGN]: emitAssign,
+    [NodeKind.IS]: emitIs,
 };
 
 function emitAssign(emitter: Emitter, node: Node) {
@@ -281,6 +282,8 @@ export default class Emitter {
         if (VERBOSE >= 1) {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
+
+        console.log(drawNode(ast));
 
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
@@ -1120,12 +1123,17 @@ function emitClass(emitter: Emitter, node: Node): void {
     }
 
     // ensure implements identifiers are being imported
+    const interfaces: string[] = [];
     let implementsNode = node.findChild(NodeKind.IMPLEMENTS_LIST);
     if (implementsNode) {
-        implementsNode.children.forEach(node =>
+        implementsNode.children.forEach(node => {
             emitter.ensureImportIdentifier(node.text)
-        );
+            interfaces.push(node.text);
+        });
     }
+
+    emitter.catchup(node.children[1].end);
+
 
     emitter.withScope(
         getClassDeclarations(emitter, name.text, contentsNode),
@@ -1156,7 +1164,16 @@ function emitClass(emitter: Emitter, node: Node): void {
         }
     );
 
-    emitter.catchup(node.end);
+    emitter.catchup(node.end - 2);
+
+    emitter.insert(`
+    public uglyImplementz(interfaceName: string): boolean {
+        ${extendsNode ? `if (super.uglyImplementz && super.uglyImplementz(interfaceName)) {
+            return true;
+        }` : '' }
+        return [${interfaces.map(i => `'${i}'`).join(',')}].indexOf(interfaceName) !== -1;
+    }`);
+
 }
 
 function emitSet(emitter: Emitter, node: Node): void {
@@ -1678,10 +1695,18 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.skipTo(constructorExpression.end);
         } else {
             visitNode(emitter, valueExpression);
-            emitter.catchup(is.start);
-            emitter.insert(Keywords.INSTANCE_OF);
-            emitter.skipTo(is.end);
-            visitNode(emitter, constructorExpression);
+            if (constructorExpression.text.match(/^I[A-Z][a-z]/)) {
+                emitter.insert(`.uglyImplementz('`);
+                emitter.skipTo(is.end + 1);
+                visitNode(emitter, constructorExpression);
+                emitter.insert(`')`);
+            } else {
+                emitter.catchup(is.start);
+                emitter.insert(Keywords.INSTANCE_OF);
+                emitter.skipTo(is.end);
+                visitNode(emitter, constructorExpression);
+
+            }
         }
 
         return;
@@ -1897,6 +1922,10 @@ export function emit(
     return emitter.emit(ast);
 }
 
+function emitIs(emitter: Emitter, node: Node): void {
+    console.log('IS: ', drawNode(node));
+}
+
 function drawNode(node: Node, depth = 0): string {
     let t = '';
 
@@ -1904,10 +1933,12 @@ function drawNode(node: Node, depth = 0): string {
         t += '  ';
     }
 
-    t += `${node.kind}:${node.text}\n`;
+    if (node) {
+        t += `${NodeKind[node.kind]}:${node.text}\n`;
 
-    for (const child of node.children) {
-        t += drawNode(child, depth + 1);
+        for (const child of node.children) {
+            t += drawNode(child, depth + 1);
+        }
     }
 
     return t;
