@@ -71,9 +71,16 @@ export function parsePrimaryExpression(parser:AS3Parser):Node {
     } else {
         result = createNode(NodeKind.IDENTIFIER, {tok: parser.tok});
 
-        // Transpile identifier to JavaScript equivalent if it's a keyword.
-        if (result.text === Keywords.INT || result.text === Keywords.UINT) {
-            result.text = "Number";
+        nextToken(parser, true);
+
+        if (tokIs(parser, Operators.COLUMN)) {
+            result.kind = NodeKind.LABEL;
+        } else {
+            if (result.text === Keywords.INT || result.text === Keywords.UINT) {
+                result.text = "Number";
+            }
+
+            return result;
         }
     }
     nextToken(parser, true);
