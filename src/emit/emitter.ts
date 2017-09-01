@@ -150,7 +150,7 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.E4X_STAR]: emitE4XAttr,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
     [NodeKind.ASSIGN]: emitAssign,
-    [NodeKind.IS]: emitIs,
+    [NodeKind.IS]: emitIs
 };
 
 function emitAssign(emitter: Emitter, node: Node) {
@@ -187,7 +187,6 @@ export function visitNode(emitter: Emitter, node: Node): void {
     if (!node) {
         return;
     }
-
 
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
@@ -282,8 +281,6 @@ export default class Emitter {
         if (VERBOSE >= 1) {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
-
-        console.log(drawNode(ast));
 
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
@@ -751,18 +748,66 @@ function getDeclarationType(emitter: Emitter, node: Node): string {
     return declarationType;
 }
 
+function nodeSearch(node: Node, fn: (node: Node) => boolean): Node | void {
+    if (fn(node)) {
+        return node;
+    }
+
+    for (const child of node.children) {
+        const result = nodeSearch(child, fn);
+        if (result) {
+            return result;
+        }
+    }
+
+    return null;
+}
+
+function processExternalInterface(emitter: Emitter, node: Node): void {
+    emitter.ensureImportIdentifier(node.text);
+
+    let root = node;
+    while (root.parent) {
+        root = root.parent;
+    }
+
+    const importNode = nodeSearch(
+        root,
+        node =>
+            node.kind === NodeKind.IMPORT &&
+            node.text.endsWith(node.text)
+    );
+
+    if (importNode instanceof Node) {
+        emitter.ensureImportIdentifier(
+            `${node.text}_uglyImplementz`,
+            `${importNode.text.replace(/\./g, '/')}`
+        );
+    } else {
+        emitter.ensureImportIdentifier(
+            `${node.text}_uglyImplementz`,
+            `./${node.text}`
+        );
+    }
+}
+
 function emitInterface(emitter: Emitter, node: Node): void {
     emitDeclaration(emitter, node);
 
+    const name = node.findChild(NodeKind.NAME).text;
+
+
     //we'll catchup the other part
     emitter.declareInScope({
-        name: node.findChild(NodeKind.NAME).text
+        name
     });
 
     // ensure extends identifier is being imported
-    let extendsNode = node.findChild(NodeKind.EXTENDS);
-    if (extendsNode) {
-        emitter.ensureImportIdentifier(extendsNode.text);
+    const extendsNodes: Node[] = [];
+
+    for (const extendsNode of node.findChildren(NodeKind.EXTENDS)) {
+        extendsNodes.push(extendsNode);
+        processExternalInterface(emitter, extendsNode);
     }
 
     let content = node.findChild(NodeKind.CONTENT);
@@ -819,6 +864,30 @@ function emitInterface(emitter: Emitter, node: Node): void {
             }
         });
     }
+
+    emitter.catchup(node.end);
+
+    emitter.insert(`
+
+export function ${name}_uglyImplementz(interfaceName: string) {
+    if (interfaceName === '${name}') {
+        return true;
+    }
+    ${extendsNodes.length
+        ? `
+    const interfaceChecks = [${extendsNodes
+        .map(n => n.text + '_uglyImplementz')
+        .join(', ')}];
+
+    for (const check$ of interfaceChecks) {
+        if (check$(interfaceName)) {
+            return true;
+        }
+    }`
+        : ''}
+
+    return false;
+}`);
 }
 
 function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
@@ -871,7 +940,6 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
-
 function hasStaticModifer(setOrGetNode: Node): boolean {
     return (
         setOrGetNode
@@ -888,18 +956,18 @@ function emitFunction(emitter: Emitter, node: Node): void {
     // Note: "ActionScript 3.0 supports neither nested nor private classes" (http://help.adobe.com/en_US/ActionScript/3.0_ProgrammingAS3/WS5b3ccc516d4fbf351e63e3d118a9b90204-7f9e.html)
     // so if we're inside a class function definition we must be inside only ONE class function definition, and we can just find the first one
     let classFunctionContainingThisFunction = node.getParentChain().find(ancestor => {
-        if (ancestor.kind === NodeKind.FUNCTION) {
-            return (
-                // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
-                ancestor.parent.kind === NodeKind.CONTENT &&
-                ancestor.parent.parent.kind == NodeKind.CLASS
-            );
-        }
-        return false;
-    });
+            if (ancestor.kind === NodeKind.FUNCTION) {
+                return (
+                    // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
+                    ancestor.parent.kind === NodeKind.CONTENT &&
+                    ancestor.parent.parent.kind == NodeKind.CLASS
+                );
+            }
+            return false;
+        });
 
     if (node.text != null) {
-        emitter.declareInScope({name: node.text});
+        emitter.declareInScope({ name: node.text });
     }
 
     if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
@@ -956,7 +1024,6 @@ function emitFunction(emitter: Emitter, node: Node): void {
             }
             emitter.insert('=> ');
             visitNode(emitter, functionBody);
-
         });
     } else {
         emitDeclaration(emitter, node);
@@ -1127,13 +1194,14 @@ function emitClass(emitter: Emitter, node: Node): void {
     let implementsNode = node.findChild(NodeKind.IMPLEMENTS_LIST);
     if (implementsNode) {
         implementsNode.children.forEach(node => {
-            emitter.ensureImportIdentifier(node.text)
+            emitter.ensureImportIdentifier(node.text);
             interfaces.push(node.text);
+
+            processExternalInterface(emitter, node);
         });
     }
 
     emitter.catchup(node.children[1].end);
-
 
     emitter.withScope(
         getClassDeclarations(emitter, name.text, contentsNode),
@@ -1168,12 +1236,24 @@ function emitClass(emitter: Emitter, node: Node): void {
 
     emitter.insert(`
     public uglyImplementz(interfaceName: string): boolean {
-        ${extendsNode ? `if (super.uglyImplementz && super.uglyImplementz(interfaceName)) {
+        ${extendsNode
+            ? `if (super.uglyImplementz && super.uglyImplementz(interfaceName)) {
             return true;
-        }` : '' }
-        return [${interfaces.map(i => `'${i}'`).join(',')}].indexOf(interfaceName) !== -1;
-    }`);
+        }`
+            : ''}
 
+        ${interfaces.length ? `
+        const interfaceChecks = [${interfaces.map(n => n + '_uglyImplementz').join(', ')}];
+
+        for (const check$ of interfaceChecks) {
+            if (check$(interfaceName)) {
+                return true;
+            }
+        }
+        ` : ''}
+
+        return false;
+    }`);
 }
 
 function emitSet(emitter: Emitter, node: Node): void {
@@ -1677,7 +1757,7 @@ function emitRelation(emitter: Emitter, node: Node): void {
         let valueExpression = node.children[0];
         let constructorExpression = node.children[2];
 
-        let typeFromPrimitiveActionScriptType : { [id: string]: string } = {
+        let typeFromPrimitiveActionScriptType: { [id: string]: string } = {
             String: 'string',
             Number: 'number',
             Boolean: 'boolean',
@@ -1691,11 +1771,15 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.insert('===');
             emitter.skipTo(is.end);
             emitter.catchup(constructorExpression.start);
-            emitter.insert(`'${typeFromPrimitiveActionScriptType[constructorExpression.text]}'`);
+            emitter.insert(
+                `'${typeFromPrimitiveActionScriptType[
+                    constructorExpression.text
+                ]}'`
+            );
             emitter.skipTo(constructorExpression.end);
         } else {
             visitNode(emitter, valueExpression);
-            if (constructorExpression.text.match(/^I[A-Z][a-z]/)) {
+            if (constructorExpression.text && constructorExpression.text.match(/^I[A-Z][a-z]/)) {
                 emitter.insert(`.uglyImplementz('`);
                 emitter.skipTo(is.end + 1);
                 visitNode(emitter, constructorExpression);
@@ -1705,7 +1789,6 @@ function emitRelation(emitter: Emitter, node: Node): void {
                 emitter.insert(Keywords.INSTANCE_OF);
                 emitter.skipTo(is.end);
                 visitNode(emitter, constructorExpression);
-
             }
         }
 
@@ -1831,7 +1914,6 @@ function emitDot(emitter: Emitter, node: Node) {
         // TODO: allow conditional compilation for function/class definitions
     }
 
-
     visitNodes(emitter, node.children);
 }
 
@@ -1841,12 +1923,6 @@ function emitE4XAttr(emitter: Emitter, node: Node): void {
 function emitE4XFilter(emitter: Emitter, node: Node): void {
     const filter = node.children[node.children.length - 1];
     const lastKid = filter.children[filter.children.length - 1];
-
-    // if (!filter.children[0].text) {
-    //     console.log("Empty:", drawNode(node));
-    //     return;
-    //     // throw new Error('Text');
-    // }
 
     emitter.catchup(node.start - 1);
     emitter.insert(`filter((n$) => `);
