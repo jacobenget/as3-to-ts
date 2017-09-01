@@ -145,7 +145,7 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.DOT]: emitDot,
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
-    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor
+    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
     [NodeKind.BREAK]: emitBreak,
 };
 
@@ -252,6 +252,7 @@ export default class Emitter {
         if (VERBOSE >= 1) {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
+
 
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
@@ -1743,7 +1744,14 @@ export function emitIdent(emitter: Emitter, node: Node): void {
             }
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
-            emitter.insert('this.');
+
+            const nodeIdx = node.parent.children.indexOf(node);
+            const sibling = node.parent.children[nodeIdx + 1];
+
+            if (!(node.text === Operators.COLUMN || (sibling && sibling.text === Operators.COLUMN))) {
+                emitter.insert('this.');
+            }
+            
         }
     }
 

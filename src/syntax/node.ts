@@ -61,7 +61,7 @@ export default class Node {
         str += "\n";
         for(let i:number = 0; i < this.children.length; i++) {
             const child:Node = this.children[i];
-            str += child.toString(offset + "  ");
+                str += child.toString(offset + "  ");
         }
         return str;
     }
