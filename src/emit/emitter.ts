@@ -253,7 +253,6 @@ export default class Emitter {
             console.log('emit() ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
         }
 
-
         this.withScope([], rootScope => {
             this.rootScope = rootScope;
             visitNode(this, filterAST(ast));
