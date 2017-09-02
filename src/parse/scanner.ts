@@ -584,12 +584,14 @@ function scanXML(scanner: AS3Scanner): Token {
 
                 // parse this as an empty tag to make sure it actually is a valid XML tag
                 let currentTokenAsEmptyXmlTag = currentToken.text;
-                if (!endsWith(currentToken.text, '/>')) {
-                    currentTokenAsEmptyXmlTag = currentToken.text.substring(0, currentToken.text.length - 1) + '/>';
-                }
-                if (!verifyXML(currentTokenAsEmptyXmlTag)) {
-                    scanner.index = currentIndex;
-                    return null;
+                if (currentTokenAsEmptyXmlTag !== '<>') {   // an unnamed empty tag is the start of an XMLList literal, and is automatically valid
+                    if (!endsWith(currentToken.text, '/>')) {
+                        currentTokenAsEmptyXmlTag = currentToken.text.substring(0, currentToken.text.length - 1) + '/>';
+                    }
+                    if (!verifyXML(currentTokenAsEmptyXmlTag)) {
+                        scanner.index = currentIndex;
+                        return null;
+                    }
                 }
             }
         }
@@ -597,8 +599,8 @@ function scanXML(scanner: AS3Scanner): Token {
 
         if (startsWith(currentToken.text, '</')) {
             level--;
-        } else if (!endsWith(currentToken.text, '/>') &&
-                currentToken.text !== '<>') { // NOT operator in AS2
+        } else if (!endsWith(currentToken.text, '/>')) {
+                // && currentToken.text !== '<>'*/) { // NOT operator in AS2: going to currently ignore this though (and drop some support for AS2), to support XMLList literals, which start with '<>'
             level++;
         }
 
@@ -626,8 +628,15 @@ function verifyXML(string: string): boolean {
             string
                 .replace(/<{[^{}]*}/g, '<someValue')    // replace XML tags that are dynamically calculated with some possible valid value
                 .replace(/{[^{}]*}/g, '"someValue"');    // replace other XML data that is dynamically calculated with some possible valid value
+        
+        // AS3 allows the construction of XMLList literals, which begin with <> and end with </>, and an empty such list is just </>
+        // these will cause the 'sax' parser to choke, but we can make a few small changes to make a valid XMLList literal into a valid XML literal
+        let listOfXmlTurnedIntoXml =
+            stringWithTemplateStringsRemoved
+                .replace(/^<>/, '<wrapper>')        // start of a non-empty list of XML
+                .replace(/<\/>$/, '</wrapper>');    // end of a non-empty list of XML
 
-        parser.write(stringWithTemplateStringsRemoved).close();
+        parser.write(listOfXmlTurnedIntoXml).close();
         return true;
     } catch (e) {
         return false;
