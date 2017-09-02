@@ -1,24 +1,35 @@
 import Node from '../../syntax/node';
-import Emitter, { visitNodes } from '../../emit/emitter';
+import Emitter, { visitNode } from '../../emit/emitter';
+import * as assert from 'assert';
 
 export const state = {
     inE4XFilter: false,
 };
 
 export default function(emitter: Emitter, node: Node) {
-    const filter = node.children[node.children.length - 1];
-    const lastKid = filter.children[filter.children.length - 1];
+    assert(node.children.length === 2);
+    
+    const thatBeingFiltered = node.children[0];
+    const filter = node.children[1];
 
-    emitter.catchup(node.start - 1);
-    emitter.skip(1);
-    emitter.insert(`filter((n$) => `);
+    visitNode(emitter, thatBeingFiltered);
+    emitter.catchup(thatBeingFiltered.end);
+    
+    assert(emitter.sourceBetween(emitter.index, emitter.index + 2) === '.('); // ensure we aren't skipping any comments between these tokens
+    
+    emitter.skip(2);    // skip the '.('
+    emitter.insert(`.filter((n$) =>`);
+    // ensure there's a space after the fat arrow
+    if (/\S/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
+        emitter.insert(' ');
+    }
+    
     state.inE4XFilter = true;
 
-    visitNodes(emitter, node.children);
+    visitNode(emitter, filter);
 
     state.inE4XFilter = false;
-    emitter.insert(')');
-    emitter.skipTo(node.end);
+    emitter.catchup(node.end);  // catchup all the way to the end ')'
 
     return true;
 }

@@ -507,7 +507,7 @@ function parseDot(parser:AS3Parser, node:Node):Node {
     if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
         nextToken(parser);
         let result = createNode(NodeKind.E4X_FILTER, {start: parser.tok.index});
-        // result.children.push(node);
+        result.children.push(node);
         result.children.push(parseExpression(parser));
         skipAllDocumentation(parser);
         result.end = consume(parser, Operators.RIGHT_PARENTHESIS).end;
