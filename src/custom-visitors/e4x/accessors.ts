@@ -56,9 +56,9 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
 
         if (assignState.inAssignment && state.dotChainDepth === 1) {
             if (isAttribute) {
-                emitter.insert(`setAttribute(${text}`);
+                emitter.insert(`$putAttribute(${text}`);
             } else {
-                emitter.insert(`setChild(${text}`);
+                emitter.insert(`$put(${text}`);
             }
 
             if (!text) {
@@ -67,9 +67,9 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
             }
         } else if (deleteState.inDelete && state.dotChainDepth === 1) {
             if (isAttribute) {
-                emitter.insert(`removeAttributeByName(${text}`);
+                emitter.insert(`$deleteAttribute(${text}`);
             } else {
-                emitter.insert(`removeChildByName(${text}`);
+                emitter.insert(`$delete(${text}`);
             }
 
             if (!text) {
@@ -80,9 +80,9 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
             emitter.insert(')');
         } else {
             if (isAttribute) {
-                emitter.insert(`attribute(${text}`);
+                emitter.insert(`$getAttribute(${text}`);
             } else {
-                emitter.insert(`child(${text}`);
+                emitter.insert(`$get(${text}`);
             }
 
             if (!text) {

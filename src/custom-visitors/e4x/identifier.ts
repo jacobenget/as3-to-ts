@@ -57,9 +57,9 @@ export default function(emitter: Emitter, node: Node) {
     let nodeVal = node.text;
 
     if (node.text[0] === '@') {
-        emitter.insert(`attribute('${node.text.slice(1)}')`);
+        emitter.insert(`$getAttribute('${node.text.slice(1)}')`);
     } else if (thisAttached && !isXMLMethod(node.text)) {
-        emitter.insert(`child('${node.text}')`);
+        emitter.insert(`$get('${node.text}')`);
     } else {
         emitter.insert(node.text);
     }
