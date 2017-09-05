@@ -1744,8 +1744,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
 
-            const nodeIdx = node.parent.children.indexOf(node);
-            const sibling = node.parent.children[nodeIdx + 1];
+            const sibling = node.nextSibling;
 
             if (!(node.text === Operators.COLUMN || (sibling && sibling.text === Operators.COLUMN))) {
                 emitter.insert('this.');
