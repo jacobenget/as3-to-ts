@@ -1,21 +1,78 @@
 import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
+import * as Keywords from '../../syntax/keywords';
 import Emitter, { visitNode } from '../../emit/emitter';
+import * as assert from 'assert';
 
-import { isXMLRoot } from './lib';
-
-export const state = {
-    inDelete: false,
-};
+import { isAnAccessorOnAnXmlValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     const deleteTarget = node.children[0];
-    if (isXMLRoot(emitter, deleteTarget)) {
-        state.inDelete = true;
+
+    if (isAnAccessorOnAnXmlValue(emitter, deleteTarget)) {
+
+        let root = deleteTarget.children[0];
+        let tail = deleteTarget.children[1];
+
+        // turn:
+        //    delete root.tail
+        //    delete root.@tail
+        //    delete root[tail]
+        //    delete root.@[tail]
+        // into:
+        //    root.$delete('tail')
+        //    root.$deleteAttribute('tail')
+        //    root.$delete(tail)
+        //    root.$deleteAttribute(tail)
+        // respectively
+
+        // General approach:
+        //  1. catchup to 'delete', then skip over 'delete' and any trailing whitespace
+        //  2. emit root
+        //  3. emit .$delete( or .$deleteAttribute(
+        //  4. emit tail
+        //  5. emit ')'
+        //  6. skip to end of node, to avoid any trailing ']'
+
+        //  1. catchup to 'delete', then skip over 'delete' and any trailing whitespace
         emitter.catchup(node.start);
+        emitter.skip(Keywords.DELETE.length);
+        // skip all whitespace after 'delete'
+        while (/\s/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
+            emitter.skip(1);
+        }
+        
+        //  2. emit root
+        visitNode(emitter, root);
+        emitter.catchup(root.end);
+        
+        //  3. emit .$delete( or .$deleteAttribute(
+        if (deleteTarget.kind === NodeKind.DOT || deleteTarget.kind === NodeKind.ARRAY_ACCESSOR) {
+            emitter.insert('.$delete(');
+        } else if (deleteTarget.kind === NodeKind.E4X_ATTR || deleteTarget.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
+            emitter.insert('.$deleteAttribute(');
+        } else {
+            assert(false);
+        }
+        
+        //  4. emit tail
+        if (deleteTarget.kind === NodeKind.DOT || deleteTarget.kind === NodeKind.E4X_ATTR) {
+            assert(tail.kind === NodeKind.LITERAL);
+            emitter.insert(`'${tail.text}'`);
+        } else if (deleteTarget.kind === NodeKind.ARRAY_ACCESSOR || deleteTarget.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
+            emitter.skipTo(tail.start);
+            visitNode(emitter, tail);
+            emitter.catchup(tail.end);
+        } else {
+            assert(false);
+        }
+        
+        //  5. emit ')'
+        emitter.insert(')');
+        
+        //  6. skip to end of node, to avoid any trailing ']'
         emitter.skipTo(node.end);
-        visitNode(emitter, deleteTarget);
-        state.inDelete = false;
+        
         return true;
     }
 

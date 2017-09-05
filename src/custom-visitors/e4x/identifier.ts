@@ -1,71 +1,63 @@
 import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
-import Emitter, { visitNodes } from '../../emit/emitter';
-import * as Keywords from '../../syntax/keywords';
-
-import { GLOBAL_NAMES, TYPE_REMAP } from '../../emit/emitter';
-
-import { isXMLMethod } from './lib';
-import { state as filterState } from './filter';
+import Emitter from '../../emit/emitter';
+import {isAnAccessorOnAnXmlValue} from './lib';
 
 export default function(emitter: Emitter, node: Node) {
-    if (!filterState.inE4XFilter) {
-        return false;
-    }
+    
+    if (isAnAccessorOnAnXmlValue(emitter, node)) {
+        
+        let representsAFunction = node.parent.kind == NodeKind.CALL;
+        
+        if (representsAFunction) {
+            // turn:
+            //    ident()
+            // into:
+            //    n$.ident()
+            
+            emitter.catchup(node.start);
+            emitter.insert(`n$.${node.text}`);
+            emitter.skipTo(node.end);
+            
+        } else {
+            // turn:
+            //    ident
+            //    @ident
+            // into:
+            //    n$.$get('ident')
+            //    n$.$getAttribute('ident')
+            // respectively
 
-    if (node.parent && node.parent.kind === NodeKind.DOT) {
-        //in case of dot just check the first
-        if (node.parent.children[0] !== node) {
-            return false;
-        }
-    }
+            // General approach:
+            //  1. emit 'n$'
+            //  2. emit .$get( or .$getAttribute(
+            //  3. emit ident
+            //  4. emit ')'
 
-    if (Keywords.isKeyWord(node.text)) {
-        return false;
-    }
+            //  1. emit 'n$'
+            emitter.catchup(node.start);
+            emitter.insert('n$');
 
-    emitter.catchup(node.start);
+            let isReferencingAnAttribute = node.text[0] === '@';
 
-    let def = emitter.findDefInScope(node.text);
-    if (def && def.bound) {
-        emitter.insert(def.bound + '.');
-    }
-
-    let thisAttached = false;
-
-    if (
-        !def &&
-        emitter.currentClassName &&
-        GLOBAL_NAMES.indexOf(node.text) === -1 &&
-        TYPE_REMAP[node.text] === undefined &&
-        node.text !== emitter.currentClassName
-    ) {
-        if (node.text.match(/^[A-Z]/)) {
-            // Import missing identifier from this namespace
-            if (!emitter.options.useNamespaces) {
-                emitter.ensureImportIdentifier(node.text);
+            //  2. emit .$get( or .$getAttribute(
+            if (isReferencingAnAttribute) {
+                emitter.insert('.$getAttribute(');
+            } else {
+                emitter.insert('.$get(');
             }
-        } else if (emitter.emitThisForNextIdent) {
-            thisAttached = true;
-            // Identifier belongs to `this.` scope.
-            emitter.insert('n$.');
+
+            //  3. emit ident
+            emitter.insert(`'${isReferencingAnAttribute ? node.text.slice(1) : node.text}'`);
+
+            //  4. emit ')'
+            emitter.insert(')');
+
+            emitter.skipTo(node.end);
         }
-    }
-
-    node.text = emitter.getIdentifierRemap(node.text) || node.text;
-
-    let nodeVal = node.text;
-
-    if (node.text[0] === '@') {
-        emitter.insert(`$getAttribute('${node.text.slice(1)}')`);
-    } else if (thisAttached && !isXMLMethod(node.text)) {
-        emitter.insert(`$get('${node.text}')`);
+        
+        return true;
     } else {
-        emitter.insert(node.text);
+        return false;
     }
-
-    emitter.skipTo(node.end);
-    emitter.emitThisForNextIdent = true;
-
-    return true;
 }

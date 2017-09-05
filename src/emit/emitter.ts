@@ -1707,6 +1707,14 @@ function emitOr(emitter: Emitter, node: Node): void {
     visitNodes(emitter, node.children);
 }
 
+export function identifierHasDefinition(emitter: Emitter, identifier: string) {
+    return !(!emitter.findDefInScope(identifier) &&
+        emitter.currentClassName &&
+        GLOBAL_NAMES.indexOf(identifier) === -1 &&
+        TYPE_REMAP[identifier] === undefined &&
+        identifier !== emitter.currentClassName);
+}
+
 export function emitIdent(emitter: Emitter, node: Node): void {
     emitter.catchup(node.start);
 
@@ -1727,14 +1735,8 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     if (def && def.bound) {
         emitter.insert(def.bound + '.');
     }
-
-    if (
-        !def &&
-        emitter.currentClassName &&
-        GLOBAL_NAMES.indexOf(node.text) === -1 &&
-        TYPE_REMAP[node.text] === undefined &&
-        node.text !== emitter.currentClassName
-    ) {
+   
+    if (!identifierHasDefinition(emitter, node.text)) {
         if (node.text.match(/^[A-Z]/)) {
             // Import missing identifier from this namespace
             if (!emitter.options.useNamespaces) {

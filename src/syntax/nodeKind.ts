@@ -31,6 +31,7 @@ enum NodeKind {
     DO,
     DOT,
     E4X_ATTR,
+    E4X_ATTR_ARRAY_ACCESS,
     E4X_FILTER,
     E4X_STAR,
     ENCAPSULATED,

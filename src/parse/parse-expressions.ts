@@ -1,4 +1,4 @@
-import Node, {createNode} from '../syntax/node';
+import Node, {createNode, CreateNodeOptions} from '../syntax/node';
 import NodeKind from '../syntax/nodeKind';
 import * as Keywords from '../syntax/keywords';
 import * as Operators from '../syntax/operators';
@@ -8,6 +8,7 @@ import {parseOptionalType, parseVector} from './parse-types';
 import {parseArrayLiteral, parseObjectLiteral, parseShortVector} from './parse-literals';
 import {VERBOSE} from '../config';
 import {skipAllDocumentation} from './parse-literals';
+import * as assert from 'assert';
 
 export function parseExpressionList(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.EXPR_LIST, {start: parser.tok.index}, parseAssignmentExpression(parser));
@@ -518,10 +519,38 @@ function parseDot(parser:AS3Parser, node:Node):Node {
         result.children.push(node);
         result.end = consume(parser, Operators.TIMES).end;
         return result;
-    } else if (tokIs(parser, Operators.AT)) {
-        let result = createNode(NodeKind.E4X_ATTR, {start: parser.tok.index});
+    } else if (parser.tok.text.startsWith(Operators.AT)) {
+        let createNodeOptions: CreateNodeOptions;
+        
+        if (tokIs(parser, Operators.AT)) {
+            nextToken(parser, true);
+            if (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
+                nextToken(parser, true);
+                let result = createNode(NodeKind.E4X_ATTR_ARRAY_ACCESS, {start: node.start});
+                result.children.push(node);
+                result.children.push(parseExpression(parser));
+                result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
+                return result;
+            } else if (tokIs(parser, Operators.TIMES)) {
+                createNodeOptions = {
+                    start: parser.tok.index,
+                    text: Operators.TIMES
+                };
+            } else {
+                assert(false);
+            }
+        } else {
+            createNodeOptions = {
+                start: parser.tok.index + 1,
+                text: parser.tok.text.slice(1)
+            };
+        }
+        
+        let result = createNode(NodeKind.E4X_ATTR, {start: node.start});
         result.children.push(node);
-        result.end = consume(parser, Operators.AT).end;
+        result.children.push(createNode(NodeKind.LITERAL, createNodeOptions));
+        result.end = parser.tok.end;
+        nextToken(parser, true);
         return result;
     }
 

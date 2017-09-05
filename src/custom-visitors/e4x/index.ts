@@ -1,12 +1,6 @@
-import Node, { createNode } from '../../syntax/node';
+import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
-import Emitter, {
-    EmitterOptions,
-    visitNode,
-    visitNodes
-} from '../../emit/emitter';
-import { isXMLMethod } from './lib';
-import { isAccessor, isXMLRoot, findLeafNode } from './lib';
+import Emitter from '../../emit/emitter';
 
 import emitAssign from './assignment';
 import emitFilter from './filter';
@@ -24,11 +18,9 @@ function visit(emitter: Emitter, node: Node): boolean {
         return emitIdent(emitter, node);
     } else if (node.kind === NodeKind.DELETE) {
         return emitDelete(emitter, node);
-    } else if (isAccessor(node)) {
+    } else {
         return emitAccessor(emitter, node);
     }
-
-    return false;
 }
 
 export default {
