@@ -1146,7 +1146,18 @@ function emitClass(emitter: Emitter, node: Node): void {
         }
     );
 
-    emitter.catchup(node.end);
+    emitter.catchup(node.end - 1);
+
+    let mods = node.findChild(NodeKind.MOD_LIST);
+    if (mods && mods.children.length) {
+        mods.children.forEach(node => {
+            if (node.text === 'dynamic') {
+                emitter.insert('    [index: number]: any;\n    [key: string]: any;\n');
+            }
+        });
+        
+    }
+
 }
 
 function emitSet(emitter: Emitter, node: Node): void {
