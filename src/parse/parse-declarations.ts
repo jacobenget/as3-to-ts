@@ -115,14 +115,14 @@ function parsePackageContent(parser:AS3Parser):Node {
         } else if (startsWith(parser.tok.text, ASDOC_COMMENT)) {
             parser.currentAsDoc = createNode(NodeKind.AS_DOC, {
                 start: parser.tok.index,
-                end: parser.tok.index + parser.tok.index - 1,
+                end: parser.tok.end,
                 text: parser.tok.text
             });
             nextToken(parser);
         } else if (startsWith(parser.tok.text, MULTIPLE_LINES_COMMENT)) {
             parser.currentMultiLineComment = createNode(NodeKind.MULTI_LINE_COMMENT, {
                 start: parser.tok.index,
-                end: parser.tok.index + parser.tok.index - 1,
+                end: parser.tok.end,
                 text: parser.tok.text
             });
             nextToken(parser);
@@ -144,8 +144,9 @@ function parsePackageContent(parser:AS3Parser):Node {
 export function parseImport(parser:AS3Parser):Node {
 
     let tok = consume(parser, Keywords.IMPORT);
+    let index = parser.tok.index;
     let name = parseImportName(parser);
-    let result:Node = createNode(NodeKind.IMPORT, {start: tok.index, text: name});
+    let result:Node = createNode(NodeKind.IMPORT, {start: tok.index, end: index + name.length, text: name});
     skip(parser, Operators.SEMI_COLUMN);
     if(VERBOSE >= 2) {
         console.log("parse-declarations.ts - parseImport() - name: " + name + ", line: " + parser.scn.lastLineScanned);
@@ -373,21 +374,24 @@ function parseInterface(parser:AS3Parser, meta:Node[], modifier:Token[]):Node {
         result.children.push(parser.currentMultiLineComment);
         parser.currentMultiLineComment = null;
     }
+    let index = parser.tok.index;
     let name = parseQualifiedName(parser);
-    result.children.push(createNode(NodeKind.NAME, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
+    result.children.push(createNode(NodeKind.NAME, {start: index, end: index + name.length, text: removePackageFromName(name)}));
 
     result.children.push(convertMeta(parser, meta));
     result.children.push(convertModifiers(parser, modifier));
 
     if (tokIs(parser, Keywords.EXTENDS)) {
         nextToken(parser); // extends
+        let index = parser.tok.index;
         name = parseQualifiedName(parser);
-        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
+        result.children.push(createNode(NodeKind.EXTENDS, {start: index, end: index + name.length, text: removePackageFromName(name)}));
     }
     while (tokIs(parser, Operators.COMMA)) {
         nextToken(parser); // comma
+        let index = parser.tok.index;
         name = parseQualifiedName(parser);
-        result.children.push(createNode(NodeKind.EXTENDS, {start: parser.tok.index, end: parser.tok.index + name.length, text: removePackageFromName(name)}));
+        result.children.push(createNode(NodeKind.EXTENDS, {start: index, end: index + name.length, text: removePackageFromName(name)}));
     }
     consume(parser, Operators.LEFT_CURLY_BRACKET);
     result.children.push(parseInterfaceContent(parser));

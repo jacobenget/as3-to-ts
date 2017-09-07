@@ -661,9 +661,9 @@ function emitImport(emitter: Emitter, node: Node): void {
             let diff = node.text.length - text.length;
 
             emitter.insert(text);
-            emitter.skip(text.length + diff + statement.length);
+            emitter.skipTo(node.end);
         } else {
-            emitter.catchup(node.end + statement.length);
+            emitter.catchup(node.end);
         }
 
         emitter.declareInScope({ name });
@@ -690,7 +690,7 @@ function emitImport(emitter: Emitter, node: Node): void {
 
         text = `{ ${name} } from "${importPath}"`;
         emitter.insert(text);
-        emitter.skipTo(node.end + Keywords.IMPORT.length + 1);
+        emitter.skipTo(node.end);
         emitter.declareInScope({ name });
     }
 }
