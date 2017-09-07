@@ -343,6 +343,7 @@ export default class Emitter {
     }
 
     commentNode(node: Node, catchSemi: boolean): void {
+        this.catchup(node.start);
         this.insert('/*');
         const source = this.sourceBetween(this.index, node.end).replace(
             /\*\//g,
