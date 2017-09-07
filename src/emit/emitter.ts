@@ -838,7 +838,7 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
-function hasStaticModifer(setOrGetNode: Node): boolean {
+export function hasStaticModifer(setOrGetNode: Node): boolean {
     return (
         setOrGetNode
             .findChild(NodeKind.MOD_LIST)
