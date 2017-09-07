@@ -1488,7 +1488,6 @@ function emitCall(emitter: Emitter, node: Node): void {
         }
     } else {
         if (!emitter.isNew && isCast(emitter, node)) {
-            console.log('IS CAST');
             const type: Node = node.findChild(NodeKind.IDENTIFIER);
             const args: Node = node.findChild(NodeKind.ARGUMENTS);
             const rtype: string = emitter.getTypeRemap(type.text) || type.text;
