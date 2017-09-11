@@ -10,6 +10,12 @@ import emitDelete from './delete';
 
 function visit(emitter: Emitter, node: Node): boolean {
 
+    if (node.kind === NodeKind.TYPE || node.kind === NodeKind.IDENTIFIER) {
+        if (["XML", "XMLList", "QName", "Namespace"].indexOf(node.text) !== -1) {
+            emitter.ensureImportIdentifier(node.text, "e4x_shim", false);
+        }
+    }
+    
     if (node.kind === NodeKind.ASSIGN) {
         return emitAssign(emitter, node);
     } else if (node.kind === NodeKind.E4X_FILTER) {
