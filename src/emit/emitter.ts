@@ -145,7 +145,8 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.DOT]: emitDot,
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
-    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor
+    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
+    [NodeKind.BREAK]: emitBreak,
 };
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -1727,8 +1728,13 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     if (def && def.bound) {
         emitter.insert(def.bound + '.');
     }
+    
+    // HACK: loop labels (e.g. 'outerloop:') are currently parsed as two sibling identifiers (e.g. 'outerloop' and ':'),
+    // and some magic has been added here so these labels are emitter exactly as is (which results in valid TypeScript)
+    let identifierIsPartOfALoopLabel = node.text === Operators.COLUMN || (node.nextSibling && node.nextSibling.text === Operators.COLUMN);
 
     if (
+        !identifierIsPartOfALoopLabel &&
         !def &&
         emitter.currentClassName &&
         GLOBAL_NAMES.indexOf(node.text) === -1 &&
@@ -1825,4 +1831,10 @@ export function emit(
 ): string {
     let emitter = new Emitter(source, options);
     return emitter.emit(ast);
+}
+
+function emitBreak(emitter: Emitter, node: Node): void {
+    // The only thing that can be in a break is a label and it shouldn't
+    //  need any special treatment.  Just bundle it all up and call it good.
+    emitter.catchup(node.end);
 }
