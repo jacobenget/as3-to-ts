@@ -760,7 +760,7 @@ function emitInterface(emitter: Emitter, node: Node): void {
                     if (node.kind === NodeKind.GET) {
                         emitter.skipTo(parameterList.end);
                         if (type) {
-                            emitType(emitter, type);
+                            visitNode(emitter, type);
                         }
                     } else if (node.kind === NodeKind.SET) {
                         let parameterNode = parameterList.findChild(
@@ -774,7 +774,7 @@ function emitInterface(emitter: Emitter, node: Node): void {
                         );
                         type = nameTypeInit.findChild(NodeKind.TYPE);
                         if (type) {
-                            emitType(emitter, type);
+                            visitNode(emitter, type);
                         }
                         emitter.skipTo(node.end);
                     }
