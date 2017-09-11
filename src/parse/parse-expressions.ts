@@ -351,11 +351,13 @@ function parseUnaryExpression(parser:AS3Parser):Node {
     let result:Node,
         index = parser.tok.index;
     if (tokIs(parser, Operators.INCREMENT)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.PRE_INC, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.PRE_INC, {start: start, end: index}, parseUnaryExpression(parser));
     } else if (tokIs(parser, Operators.DECREMENT)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.PRE_DEC, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.PRE_DEC, {start: start, end: index}, parseUnaryExpression(parser));
     } else if (tokIs(parser, Operators.MINUS)) {
         nextToken(parser);
         result = createNode(NodeKind.MINUS, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
