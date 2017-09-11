@@ -188,6 +188,7 @@ export function visitNode(emitter: Emitter, node: Node): void {
         return;
     }
 
+
     // use custom visitor. allow custom node manipulation
     for (let i = 0, l = emitter.options.customVisitors.length; i < l; i++) {
         let customVisitor = emitter.options.customVisitors[i];
@@ -940,6 +941,7 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
     return decls;
 }
 
+
 function hasStaticModifer(setOrGetNode: Node): boolean {
     return (
         setOrGetNode
@@ -956,18 +958,18 @@ function emitFunction(emitter: Emitter, node: Node): void {
     // Note: "ActionScript 3.0 supports neither nested nor private classes" (http://help.adobe.com/en_US/ActionScript/3.0_ProgrammingAS3/WS5b3ccc516d4fbf351e63e3d118a9b90204-7f9e.html)
     // so if we're inside a class function definition we must be inside only ONE class function definition, and we can just find the first one
     let classFunctionContainingThisFunction = node.getParentChain().find(ancestor => {
-            if (ancestor.kind === NodeKind.FUNCTION) {
-                return (
-                    // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
-                    ancestor.parent.kind === NodeKind.CONTENT &&
-                    ancestor.parent.parent.kind == NodeKind.CLASS
-                );
-            }
-            return false;
-        });
+        if (ancestor.kind === NodeKind.FUNCTION) {
+            return (
+                // Note: Nodes with kind NodeKind.FUNCTION always have two generations of parents, so checking for null/undefined in the accessors below is unnecessary
+                ancestor.parent.kind === NodeKind.CONTENT &&
+                ancestor.parent.parent.kind == NodeKind.CLASS
+            );
+        }
+        return false;
+    });
 
     if (node.text != null) {
-        emitter.declareInScope({ name: node.text });
+        emitter.declareInScope({name: node.text});
     }
 
     if (!(typeof classFunctionContainingThisFunction === 'undefined' || hasStaticModifer(classFunctionContainingThisFunction))) {
@@ -1024,6 +1026,7 @@ function emitFunction(emitter: Emitter, node: Node): void {
             }
             emitter.insert('=> ');
             visitNode(emitter, functionBody);
+
         });
     } else {
         emitDeclaration(emitter, node);
@@ -1757,7 +1760,7 @@ function emitRelation(emitter: Emitter, node: Node): void {
         let valueExpression = node.children[0];
         let constructorExpression = node.children[2];
 
-        let typeFromPrimitiveActionScriptType: { [id: string]: string } = {
+        let typeFromPrimitiveActionScriptType : { [id: string]: string } = {
             String: 'string',
             Number: 'number',
             Boolean: 'boolean',
@@ -1771,11 +1774,7 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.insert('===');
             emitter.skipTo(is.end);
             emitter.catchup(constructorExpression.start);
-            emitter.insert(
-                `'${typeFromPrimitiveActionScriptType[
-                    constructorExpression.text
-                ]}'`
-            );
+            emitter.insert(`'${typeFromPrimitiveActionScriptType[constructorExpression.text]}'`);
             emitter.skipTo(constructorExpression.end);
         } else {
             visitNode(emitter, valueExpression);
@@ -1913,6 +1912,7 @@ function emitDot(emitter: Emitter, node: Node) {
     } else {
         // TODO: allow conditional compilation for function/class definitions
     }
+
 
     visitNodes(emitter, node.children);
 }
