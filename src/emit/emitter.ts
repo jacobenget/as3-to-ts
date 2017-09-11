@@ -1755,6 +1755,11 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     node.text = emitter.getIdentifierRemap(node.text) || node.text;
 
     emitter.insert(node.text);
+    
+    // if this identifer represents a parametrized type, which is the direct target of a 'new' statement, append the needed parenthesis
+    if (node.text.slice(-1) === '>' && node.parent.kind === NodeKind.NEW) {
+        emitter.insert('()');
+    }
 
     emitter.skipTo(node.end);
     emitter.emitThisForNextIdent = true;
