@@ -1349,9 +1349,17 @@ function emitDeclaration(emitter: Emitter, node: Node): void {
             }
             emitter.skipTo(node.end);
         });
+        assert(insertExport || node.kind !== NodeKind.CLASS);   // assert that no classes have a 'private' modifier (otherwise, the fix below to ensure *all* classes are 'export'ed doesn't work)
         if (insertExport) {
             emitter.insert('export');
         }
+    } else if (node.kind === NodeKind.CLASS) {
+        // In AS3, public classes are allowed to have public methods return instances of non-public classes,
+        // for such code to produce valid TypeScript we have to export all such non-public classes,
+        // so forcefully emit 'export ' just before the 'class' declaration
+        emitter.catchup(node.findChild(NodeKind.NAME).start);
+        let classKeywordOnwards = /class\s+.*?$/.exec(emitter.output)[0];
+        emitter.output = emitter.output.slice(0, -classKeywordOnwards.length) + 'export ' + classKeywordOnwards;
     }
 }
 
