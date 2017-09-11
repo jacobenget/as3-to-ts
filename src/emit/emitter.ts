@@ -143,6 +143,7 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.ARRAY]: emitArray,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
     [NodeKind.BREAK]: emitBreak,
+    [NodeKind.IS]: emitIs
 };
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -716,19 +717,67 @@ function getDeclarationType(emitter: Emitter, node: Node): string {
     return declarationType;
 }
 
+function nodeSearch(node: Node, fn: (node: Node) => boolean): Node | void {
+    if (fn(node)) {
+        return node;
+    }
+
+    for (const child of node.children) {
+        const result = nodeSearch(child, fn);
+        if (result) {
+            return result;
+        }
+    }
+
+    return null;
+}
+
+function processExternalInterface(emitter: Emitter, node: Node): void {
+    emitter.ensureImportIdentifier(node.text);
+
+    let root = node;
+    while (root.parent) {
+        root = root.parent;
+    }
+
+    const importNode = nodeSearch(
+        root,
+        node =>
+            node.kind === NodeKind.IMPORT &&
+            node.text.endsWith(node.text)
+    );
+
+    if (importNode instanceof Node) {
+        emitter.ensureImportIdentifier(
+            `${node.text}_uglyImplementz`,
+            `${importNode.text.replace(/\./g, '/')}`
+        );
+    } else {
+        emitter.ensureImportIdentifier(
+            `${node.text}_uglyImplementz`,
+            `./${node.text}`
+        );
+    }
+}
+
 function emitInterface(emitter: Emitter, node: Node): void {
     emitDeclaration(emitter, node);
 
+    const name = node.findChild(NodeKind.NAME).text;
+
+
     //we'll catchup the other part
     emitter.declareInScope({
-        name: node.findChild(NodeKind.NAME).text
+        name
     });
 
-    // ensure extends identifiers are being imported
-    let extendsNodes = node.findChildren(NodeKind.EXTENDS);
-    extendsNodes.forEach(extendsNode => {
-        emitter.ensureImportIdentifier(extendsNode.text);
-    });
+    // ensure extends identifier is being imported
+    const extendsNodes: Node[] = [];
+
+    for (const extendsNode of node.findChildren(NodeKind.EXTENDS)) {
+        extendsNodes.push(extendsNode);
+        processExternalInterface(emitter, extendsNode);
+    }
 
     let content = node.findChild(NodeKind.CONTENT);
     let contentsNode = content && content.children;
@@ -784,6 +833,30 @@ function emitInterface(emitter: Emitter, node: Node): void {
             }
         });
     }
+
+    emitter.catchup(node.end);
+
+    emitter.insert(`
+
+export function ${name}_uglyImplementz(interfaceName: string) {
+    if (interfaceName === '${name}') {
+        return true;
+    }
+    ${extendsNodes.length
+        ? `
+    const interfaceChecks = [${extendsNodes
+        .map(n => n.text + '_uglyImplementz')
+        .join(', ')}];
+
+    for (const check$ of interfaceChecks) {
+        if (check$(interfaceName)) {
+            return true;
+        }
+    }`
+        : ''}
+
+    return false;
+}`);
 }
 
 function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
@@ -1108,12 +1181,18 @@ function emitClass(emitter: Emitter, node: Node): void {
     }
 
     // ensure implements identifiers are being imported
+    const interfaces: string[] = [];
     let implementsNode = node.findChild(NodeKind.IMPLEMENTS_LIST);
     if (implementsNode) {
-        implementsNode.children.forEach(node =>
-            emitter.ensureImportIdentifier(node.text)
-        );
+        implementsNode.children.forEach(node => {
+            emitter.ensureImportIdentifier(node.text);
+            interfaces.push(node.text);
+
+            processExternalInterface(emitter, node);
+        });
     }
+
+    emitter.catchup(node.children[1].end);
 
     emitter.withScope(
         getClassDeclarations(emitter, name.text, contentsNode),
@@ -1144,7 +1223,28 @@ function emitClass(emitter: Emitter, node: Node): void {
         }
     );
 
-    emitter.catchup(node.end);
+    emitter.catchup(node.end - 2);
+
+    emitter.insert(`
+    public uglyImplementz(interfaceName: string): boolean {
+        ${extendsNode
+            ? `if (super.uglyImplementz && super.uglyImplementz(interfaceName)) {
+            return true;
+        }`
+            : ''}
+
+        ${interfaces.length ? `
+        const interfaceChecks = [${interfaces.map(n => n + '_uglyImplementz').join(', ')}];
+
+        for (const check$ of interfaceChecks) {
+            if (check$(interfaceName)) {
+                return true;
+            }
+        }
+        ` : ''}
+
+        return false;
+    }`);
 }
 
 function emitSet(emitter: Emitter, node: Node): void {
@@ -1684,10 +1784,17 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.skipTo(constructorExpression.end);
         } else {
             visitNode(emitter, valueExpression);
-            emitter.catchup(is.start);
-            emitter.insert(Keywords.INSTANCE_OF);
-            emitter.skipTo(is.end);
-            visitNode(emitter, constructorExpression);
+            if (constructorExpression.text && constructorExpression.text.match(/^I[A-Z][a-z]/)) {
+                emitter.insert(`.uglyImplementz('`);
+                emitter.skipTo(is.end + 1);
+                visitNode(emitter, constructorExpression);
+                emitter.insert(`')`);
+            } else {
+                emitter.catchup(is.start);
+                emitter.insert(Keywords.INSTANCE_OF);
+                emitter.skipTo(is.end);
+                visitNode(emitter, constructorExpression);
+            }
         }
 
         return;
@@ -1847,4 +1954,27 @@ function emitBreak(emitter: Emitter, node: Node): void {
     // The only thing that can be in a break is a label and it shouldn't
     //  need any special treatment.  Just bundle it all up and call it good.
     emitter.catchup(node.end);
+}
+
+function emitIs(emitter: Emitter, node: Node): void {
+    console.log('IS: ', drawNode(node));
+}
+
+function drawNode(node: Node, depth = 0): string {
+    let t = '';
+
+    for (let i = 0; i < depth; i += 1) {
+        t += '  ';
+    }
+
+    if (node) {
+        t += `${NodeKind[node.kind]}:${node.text}\n`;
+
+        for (const child of node.children) {
+            t += drawNode(child, depth + 1);
+        }
+    }
+
+    return t;
+    // return node.text + ': ' +  node.children.map((n) => drawNode(n, depth + 1)).join(', ')
 }
