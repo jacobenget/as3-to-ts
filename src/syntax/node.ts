@@ -2,7 +2,7 @@ import NodeKind, {nodeKindName} from './nodeKind';
 import Token from '../parse/token';
 import {VERBOSE} from '../config';
 
-interface CreateNodeOptions {
+export interface CreateNodeOptions {
     start?: number;
     end?: number;
     text?: string;

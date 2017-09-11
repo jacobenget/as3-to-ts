@@ -1,4 +1,4 @@
-import Node, {createNode} from '../syntax/node';
+import Node, {createNode, CreateNodeOptions} from '../syntax/node';
 import NodeKind from '../syntax/nodeKind';
 import * as Keywords from '../syntax/keywords';
 import * as Operators from '../syntax/operators';
@@ -8,6 +8,7 @@ import {parseOptionalType, parseVector} from './parse-types';
 import {parseArrayLiteral, parseObjectLiteral, parseShortVector} from './parse-literals';
 import {VERBOSE} from '../config';
 import {skipAllDocumentation} from './parse-literals';
+import * as assert from 'assert';
 
 export function parseExpressionList(parser:AS3Parser):Node {
     let result:Node = createNode(NodeKind.EXPR_LIST, {start: parser.tok.index}, parseAssignmentExpression(parser));
@@ -350,11 +351,13 @@ function parseUnaryExpression(parser:AS3Parser):Node {
     let result:Node,
         index = parser.tok.index;
     if (tokIs(parser, Operators.INCREMENT)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.PRE_INC, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.PRE_INC, {start: start, end: index}, parseUnaryExpression(parser));
     } else if (tokIs(parser, Operators.DECREMENT)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.PRE_DEC, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.PRE_DEC, {start: start, end: index}, parseUnaryExpression(parser));
     } else if (tokIs(parser, Operators.MINUS)) {
         nextToken(parser);
         result = createNode(NodeKind.MINUS, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
@@ -507,7 +510,7 @@ function parseDot(parser:AS3Parser, node:Node):Node {
     if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
         nextToken(parser);
         let result = createNode(NodeKind.E4X_FILTER, {start: parser.tok.index});
-        // result.children.push(node);
+        result.children.push(node);
         result.children.push(parseExpression(parser));
         skipAllDocumentation(parser);
         result.end = consume(parser, Operators.RIGHT_PARENTHESIS).end;
@@ -518,10 +521,38 @@ function parseDot(parser:AS3Parser, node:Node):Node {
         result.children.push(node);
         result.end = consume(parser, Operators.TIMES).end;
         return result;
-    } else if (tokIs(parser, Operators.AT)) {
-        let result = createNode(NodeKind.E4X_ATTR, {start: parser.tok.index});
+    } else if (parser.tok.text.startsWith(Operators.AT)) {
+        let createNodeOptions: CreateNodeOptions;
+        
+        if (tokIs(parser, Operators.AT)) {
+            nextToken(parser, true);
+            if (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
+                nextToken(parser, true);
+                let result = createNode(NodeKind.E4X_ATTR_ARRAY_ACCESS, {start: node.start});
+                result.children.push(node);
+                result.children.push(parseExpression(parser));
+                result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
+                return result;
+            } else if (tokIs(parser, Operators.TIMES)) {
+                createNodeOptions = {
+                    start: parser.tok.index,
+                    text: Operators.TIMES
+                };
+            } else {
+                assert(false);
+            }
+        } else {
+            createNodeOptions = {
+                start: parser.tok.index + 1,
+                text: parser.tok.text.slice(1)
+            };
+        }
+        
+        let result = createNode(NodeKind.E4X_ATTR, {start: node.start});
         result.children.push(node);
-        result.end = consume(parser, Operators.AT).end;
+        result.children.push(createNode(NodeKind.LITERAL, createNodeOptions));
+        result.end = parser.tok.end;
+        nextToken(parser, true);
         return result;
     }
 
@@ -544,7 +575,6 @@ function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
         result.children.push(parseExpression(parser));
         result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
     }
-    console.log(drawNode(result));
     return result;
 }
 
