@@ -1728,8 +1728,13 @@ export function emitIdent(emitter: Emitter, node: Node): void {
     if (def && def.bound) {
         emitter.insert(def.bound + '.');
     }
+    
+    // HACK: loop labels (e.g. 'outerloop:') are currently parsed as two sibling identifiers (e.g. 'outerloop' and ':'),
+    // and some magic has been added here so these labels are emitter exactly as is (which results in valid TypeScript)
+    let identifierIsPartOfALoopLabel = node.text === Operators.COLUMN || (node.nextSibling && node.nextSibling.text === Operators.COLUMN);
 
     if (
+        !identifierIsPartOfALoopLabel &&
         !def &&
         emitter.currentClassName &&
         GLOBAL_NAMES.indexOf(node.text) === -1 &&
@@ -1743,13 +1748,7 @@ export function emitIdent(emitter: Emitter, node: Node): void {
             }
         } else if (emitter.emitThisForNextIdent) {
             // Identifier belongs to `this.` scope.
-
-            const sibling = node.nextSibling;
-
-            if (!(node.text === Operators.COLUMN || (sibling && sibling.text === Operators.COLUMN))) {
-                emitter.insert('this.');
-            }
-            
+            emitter.insert('this.');
         }
     }
 
