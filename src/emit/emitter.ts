@@ -1632,9 +1632,22 @@ function emitRelation(emitter: Emitter, node: Node): void {
         //       e.g. (myVector as Vector.<Boolean>)
         if (node.lastChild.kind === NodeKind.IDENTIFIER) {
             emitter.insert('(<');
-            emitter.insert(
-                emitter.getTypeRemap(node.lastChild.text) || node.lastChild.text
-            );
+            
+            let typeName = node.lastChild.text;
+
+            // ensure type is imported
+            if (
+                GLOBAL_NAMES.indexOf(typeName) === -1 &&
+                !emitter.getTypeRemap(typeName) &&
+                TYPE_REMAP_VALUES.indexOf(typeName) === -1
+            ) {
+                emitter.ensureImportIdentifier(typeName);
+            }
+
+            typeName = emitter.getTypeRemap(typeName) || typeName;
+            
+            emitter.insert(typeName);
+            
             emitter.insert('>');
             visitNodes(emitter, node.getChildUntil(NodeKind.AS));
             emitter.catchup(as.start);
