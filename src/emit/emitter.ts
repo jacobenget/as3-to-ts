@@ -80,8 +80,8 @@ for (var k in TYPE_REMAP) {
 }
 
 const IDENTIFIER_REMAP: { [id: string]: string } = {
-    Dictionary: 'Map<any, any>',
-
+    Dictionary: 'Object',
+    
     // Inexistent errors
     ArgumentError: 'Error',
     DefinitionError: 'Error',
