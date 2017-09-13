@@ -415,10 +415,7 @@ function parseInterfaceContent(parser:AS3Parser):Node {
         } else if (tokIs(parser, Keywords.INCLUDE) || tokIs(parser, Keywords.INCLUDE_AS2)) {
             result.children.push(parseIncludeExpression(parser));
         } else if (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
-            while (!tokIs(parser, Operators.RIGHT_SQUARE_BRACKET)) {
-                nextToken(parser);
-            }
-            nextToken(parser);
+            result.children.push(parseMetaData(parser));
         } else {
             tryToParseCommentNode(parser, result, null);
         }

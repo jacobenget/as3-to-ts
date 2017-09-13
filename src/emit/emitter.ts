@@ -779,7 +779,7 @@ function emitInterface(emitter: Emitter, node: Node): void {
                     emitter.commentNode(node, true);
                 }
             } else {
-                //include or import in interface content not supported
+                //include or import or metadata in interface content not supported
                 emitter.commentNode(node, true);
             }
         });
