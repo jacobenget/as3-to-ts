@@ -1179,13 +1179,61 @@ function emitObjectValue(emitter: Emitter, node: Node): void {
     visitNodes(emitter, node.children);
 }
 
+// returns 'true' or 'false', based on whether or not the chain of parents from 'node' on upwards
+// have 'kind' values that match the array of kind values given (starting from index 0 on up)
+function parentChainHasKinds(node: Node, arrayOfKinds: number[]): boolean {
+    if (arrayOfKinds.length === 0 || node === null) {
+        return true;
+    } else {
+        if (node.parent.kind !== arrayOfKinds[0]) {
+            return false;
+        } else {
+            return parentChainHasKinds(node.parent, arrayOfKinds.slice(1));
+        }
+    }
+}
+
 function emitNameTypeInit(emitter: Emitter, node: Node): void {
     emitter.declareInScope({
         name: node.findChild(NodeKind.NAME).text,
         type: getDeclarationType(emitter, node)
     });
     emitter.catchup(node.start);
-    visitNodes(emitter, node.children);
+    
+    assert(node.children[0].kind === NodeKind.NAME);
+    assert(node.children[1].kind === NodeKind.TYPE || node.children[1].kind === NodeKind.VECTOR);
+    assert(node.children.length === 2 || (node.children.length === 3 && node.children[2].kind === NodeKind.INIT));
+    
+    let nameNode = node.children[0];
+    let typeNode = node.children[1];
+    let initNode = node.children[2] || null;
+
+    // we need to know whether or not we're emitting an init statement on a function declaration on an interface,
+    // because such functions can't have initialization expressions, and so we need to skip this 'init' expression and add a '?' to the arg name to denote that it's optional
+    let isParameterOnInterfaceFunction = false;
+
+    if (parentChainHasKinds(node, [NodeKind.PARAMETER, NodeKind.PARAMETER_LIST, NodeKind.TYPE, NodeKind.CONTENT, NodeKind.INTERFACE])) {
+        if (node.getParentChain().filter(ancestor => ancestor.kind === NodeKind.TYPE)[0].text === 'function') {
+            isParameterOnInterfaceFunction = true;
+        }
+    }
+    
+    visitNode(emitter, nameNode);
+    
+    if (isParameterOnInterfaceFunction && initNode) {
+        emitter.catchup(nameNode.end);
+        emitter.insert('?');
+    }
+    
+    visitNode(emitter, typeNode);
+    
+    if (initNode) {
+        if (isParameterOnInterfaceFunction) {
+            emitter.commentNode(initNode, false);
+        } else {
+            visitNode(emitter, initNode);
+        }
+    }
 }
 
 function emitMethod(emitter: Emitter, node: Node): void {

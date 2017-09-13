@@ -128,8 +128,8 @@ export function parseNameTypeInit(parser:AS3Parser):Node {
 function parseOptionalInit(parser:AS3Parser):Node {
     let result:Node = null;
     if (tokIs(parser, Operators.EQUAL)) {
-        nextToken(parser, true);
         let index = parser.tok.index;
+        nextToken(parser, true);
         let expr = parseExpression(parser);
         result = createNode(NodeKind.INIT, {start: index, end: expr.end}, expr);
     }
