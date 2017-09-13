@@ -1347,6 +1347,82 @@ function emitClassField(emitter: Emitter, node: Node): void {
             mapFromModifiersToTextToEmit[keyword] = keyword;
         });
 
+        // visibility modifiers on related 'get' and 'set' methods must be the same in TypeScript,
+        // so if this is a 'get' or a 'set', look for the related method and choose to use the 'most visible' modifier that exists on either of them
+        if ((node.kind === NodeKind.GET) || (node.kind === NodeKind.SET)) {
+            
+            // NOTE: the order of these enums completely decides the priority of Visibility settings, higher values overtaking lower values (i.e. Public preferred over Private)
+            enum Visibility {
+                Private,
+                Protected,
+                Public,
+                NotSpecified    // even though not specifying visibility means a default of 'public' is applied,
+                                // this state of not specifying visibility is *not* seen equivalent to specifying 'public',
+                                // (when on has to get the visibility of the getter and the setter to be the same)
+                                // so we have to account for this extra state
+            }
+            
+            function effectiveVisibilityFromModList(modList: Node): Visibility {
+                if (modList !== null) {
+                    if (modList.children.findIndex(node => node.text === Keywords.PRIVATE) !== -1) {
+                        return Visibility.Private;
+                    } else if (modList.children.findIndex(node => node.text === Keywords.PROTECTED) !== -1) {
+                        return  Visibility.Protected;
+                    } else if (modList.children.findIndex(node => node.text === Keywords.PUBLIC) !== -1) {
+                        return  Visibility.Public;
+                    }
+                }
+                
+                return Visibility.NotSpecified;
+            }
+
+            function keywordFromSpecifiedVisibility(visibility: Visibility): string {
+                if (visibility === Visibility.Public) {
+                    return Keywords.PUBLIC;
+                } else if (visibility === Visibility.Protected) {
+                    return Keywords.PROTECTED;
+                } else if (visibility === Visibility.Protected) {
+                    return Keywords.PRIVATE;
+                } else {
+                    assert(false);
+                }
+            }
+            
+            let effectiveVisibility = effectiveVisibilityFromModList(mods);
+
+            let getIsStatic = hasStaticModifer(node);
+
+            let relatedKind = node.kind === NodeKind.GET ? NodeKind.SET : NodeKind.GET;
+
+            // find all related nodes that appear in the same class, that have the same name, and are the same 'static-ness'
+            let relatedNodes = node.parent
+                .findChildren(relatedKind)
+                .filter(sibling => sibling.text === node.text)
+                .filter(sibling => getIsStatic === hasStaticModifer(sibling));
+
+            assert(relatedNodes.length <= 1); // there should be at most one such matching set node
+
+            if (relatedNodes.length > 0) {
+                // and if we found a matching related node, possibly use its effective visibility to influence the visibility of this node
+                let relatedModList = relatedNodes[0].findChild(NodeKind.MOD_LIST);
+                let effectiveVisibilityOfRelatedNode = effectiveVisibilityFromModList(relatedModList);
+                
+                if (effectiveVisibilityOfRelatedNode > effectiveVisibility) {
+                    let newVisibility: string;
+
+                    if (effectiveVisibilityOfRelatedNode === Visibility.NotSpecified) {
+                        newVisibility = `/*${keywordFromSpecifiedVisibility(effectiveVisibility)}*/`;
+                    } else {
+                        newVisibility = keywordFromSpecifiedVisibility(effectiveVisibilityOfRelatedNode);
+                    }
+                    
+                    mapFromModifiersToTextToEmit[Keywords.PRIVATE] = newVisibility;
+                    mapFromModifiersToTextToEmit[Keywords.PROTECTED] = newVisibility;
+                    mapFromModifiersToTextToEmit[Keywords.PUBLIC] = newVisibility;
+                }
+            }
+        }
+
         // Need to fix this difference:
         //  ActionScript: 'static' modifier can appear before or after access modifier
         //  TypeScript: 'static' modifier must appear after access modifier
