@@ -1700,7 +1700,29 @@ function emitRelation(emitter: Emitter, node: Node): void {
             emitter.catchup(is.start);
             emitter.insert(Keywords.INSTANCE_OF);
             emitter.skipTo(is.end);
-            visitNode(emitter, constructorExpression);
+            
+            if (constructorExpression.kind === NodeKind.IDENTIFIER) {
+                emitter.catchup(constructorExpression.start);
+
+                let typeName = constructorExpression.text;
+
+                // ensure type is imported
+                if (
+                    GLOBAL_NAMES.indexOf(typeName) === -1 &&
+                    !emitter.getTypeRemap(typeName) &&
+                    TYPE_REMAP_VALUES.indexOf(typeName) === -1 &&
+                    emitter.findDefInScope(typeName) === null
+                ) {
+                    emitter.ensureImportIdentifier(typeName);
+                }
+
+                typeName = emitter.getTypeRemap(typeName) || typeName;
+
+                emitter.insert(typeName);
+                emitter.skipTo(constructorExpression.end);
+            } else {
+                visitNode(emitter, constructorExpression);
+            }
         }
 
         return;

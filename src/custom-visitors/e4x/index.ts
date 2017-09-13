@@ -8,11 +8,24 @@ import emitIdent from './identifier';
 import emitAccessor from './accessors';
 import emitDelete from './delete';
 
+import * as assert from 'assert';
+
 function visit(emitter: Emitter, node: Node): boolean {
 
+    let typesExportedFromShim = ["XML", "XMLList", "QName", "Namespace"];
+    
+    // if this node references one of the types exported by 'e4x_shim', make sure there's an import for this type
     if (node.kind === NodeKind.TYPE || node.kind === NodeKind.IDENTIFIER) {
-        if (["XML", "XMLList", "QName", "Namespace"].indexOf(node.text) !== -1) {
+        if (typesExportedFromShim.indexOf(node.text) !== -1) {
             emitter.ensureImportIdentifier(node.text, "e4x_shim", false);
+        }
+    } else if (node.kind === NodeKind.RELATION) {
+        assert(node.children.length === 3);
+        
+        if (node.findChild(NodeKind.IS)) {
+            if (node.lastChild.kind === NodeKind.IDENTIFIER && typesExportedFromShim.indexOf(node.lastChild.text) !== -1) {
+                emitter.ensureImportIdentifier(node.lastChild.text, "e4x_shim", false);
+            }
         }
     }
     
