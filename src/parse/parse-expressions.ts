@@ -418,18 +418,17 @@ function parseUnaryPostfixExpression(parser:AS3Parser):Node {
 
 
 function parseIncrement(parser:AS3Parser, node:Node):Node {
-    nextToken(parser, true);
     let result:Node = createNode(NodeKind.POST_INC, {start: node.start, end: parser.tok.end});
+    nextToken(parser, true);
     result.children.push(node);
     return result;
 }
 
 
 function parseDecrement(parser:AS3Parser, node:Node):Node {
-    nextToken(parser, true);
     let result:Node = createNode(NodeKind.POST_DEC, {start: node.start, end: parser.tok.end});
+    nextToken(parser, true);
     result.children.push(node);
-    result.end = node.end;
     return result;
 }
 
