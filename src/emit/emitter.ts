@@ -74,7 +74,7 @@ export const TYPE_REMAP: { [id: string]: string } = {
 };
 
 // TODO: improve me (used only on emitType())
-const TYPE_REMAP_VALUES = ['void'];
+export const TYPE_REMAP_VALUES = ['void'];
 for (var k in TYPE_REMAP) {
     TYPE_REMAP_VALUES.push(TYPE_REMAP[k]);
 }
