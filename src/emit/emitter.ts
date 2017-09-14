@@ -142,7 +142,8 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
-    [NodeKind.BREAK]: emitBreak,
+    [NodeKind.BREAK]: emitLoopBranch,
+    [NodeKind.CONTINUE]: emitLoopBranch,
 };
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -2003,7 +2004,7 @@ export function emit(
     return emitter.emit(ast);
 }
 
-function emitBreak(emitter: Emitter, node: Node): void {
+function emitLoopBranch(emitter: Emitter, node: Node): void {
     // The only thing that can be in a break is a label and it shouldn't
     //  need any special treatment.  Just bundle it all up and call it good.
     emitter.catchup(node.end);
