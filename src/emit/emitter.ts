@@ -1383,7 +1383,7 @@ function emitClassField(emitter: Emitter, node: Node): void {
                     return Keywords.PUBLIC;
                 } else if (visibility === Visibility.Protected) {
                     return Keywords.PROTECTED;
-                } else if (visibility === Visibility.Protected) {
+                } else if (visibility === Visibility.Private) {
                     return Keywords.PRIVATE;
                 } else {
                     assert(false);
