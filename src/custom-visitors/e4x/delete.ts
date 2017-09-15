@@ -15,8 +15,8 @@ export default function(emitter: Emitter, node: Node) {
         let tail = deleteTarget.children[1];
 
         // turn:
-        //    delete root.tail
-        //    delete root.@tail
+        //    delete root.tail     // (includes tail === '*')
+        //    delete root.@tail     // (includes tail === '*')
         //    delete root[tail]
         //    delete root.@[tail]
         // into:
@@ -47,7 +47,7 @@ export default function(emitter: Emitter, node: Node) {
         emitter.catchup(root.end);
         
         //  3. emit .$delete( or .$deleteAttribute(
-        if (deleteTarget.kind === NodeKind.DOT || deleteTarget.kind === NodeKind.ARRAY_ACCESSOR) {
+        if (deleteTarget.kind === NodeKind.DOT || deleteTarget.kind === NodeKind.ARRAY_ACCESSOR || deleteTarget.kind === NodeKind.E4X_STAR) {
             emitter.insert('.$delete(');
         } else if (deleteTarget.kind === NodeKind.E4X_ATTR || deleteTarget.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
             emitter.insert('.$deleteAttribute(');
@@ -59,6 +59,9 @@ export default function(emitter: Emitter, node: Node) {
         if (deleteTarget.kind === NodeKind.DOT || deleteTarget.kind === NodeKind.E4X_ATTR) {
             assert(tail.kind === NodeKind.LITERAL);
             emitter.insert(`'${tail.text}'`);
+        } else if (deleteTarget.kind === NodeKind.E4X_STAR) {
+            assert(typeof tail === 'undefined');
+            emitter.insert(`'*'`);
         } else if (deleteTarget.kind === NodeKind.ARRAY_ACCESSOR || deleteTarget.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
             emitter.skipTo(tail.start);
             visitNode(emitter, tail);

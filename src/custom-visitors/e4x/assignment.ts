@@ -19,8 +19,8 @@ export default function(emitter: Emitter, node: Node) {
         let tail = lhs.children[1];
         
         // turn:
-        //    root.tail = rhs
-        //    root.@tail = rhs
+        //    root.tail = rhs     // (includes tail === '*')
+        //    root.@tail = rhs     // (includes tail === '*')
         //    root[tail] = rhs
         //    root.@[tail] = rhs
         // into:
@@ -51,7 +51,7 @@ export default function(emitter: Emitter, node: Node) {
         emitter.catchup(root.end);
 
         //  2. emit .$put( or .$putAttribute(
-        if (lhs.kind === NodeKind.DOT || lhs.kind === NodeKind.ARRAY_ACCESSOR) {
+        if (lhs.kind === NodeKind.DOT || lhs.kind === NodeKind.ARRAY_ACCESSOR || lhs.kind === NodeKind.E4X_STAR) {
             emitter.insert('.$put(');
         } else if (lhs.kind === NodeKind.E4X_ATTR || lhs.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
             emitter.insert('.$putAttribute(');
@@ -63,6 +63,9 @@ export default function(emitter: Emitter, node: Node) {
         if (lhs.kind === NodeKind.DOT || lhs.kind === NodeKind.E4X_ATTR) {
             assert(tail.kind === NodeKind.LITERAL);
             emitter.insert(`'${tail.text}'`);
+        } else if (lhs.kind === NodeKind.E4X_STAR) {
+            assert(typeof tail === 'undefined');
+            emitter.insert(`'*'`);
         } else if (lhs.kind === NodeKind.ARRAY_ACCESSOR || lhs.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
             emitter.skipTo(tail.start);
             visitNode(emitter, tail);

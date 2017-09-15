@@ -2,12 +2,15 @@ import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
 import Emitter from '../../emit/emitter';
 import {isAnAccessorOnAnXmlValue} from './lib';
+import * as assert from 'assert';
 
 export default function(emitter: Emitter, node: Node) {
     
     if (isAnAccessorOnAnXmlValue(emitter, node)) {
         
         let representsAFunction = node.parent.kind == NodeKind.CALL;
+        
+        assert(node.text.indexOf('*') === -1);  // no code yet to include accessing either '*' or '@*' in an unqualified way inside a filter callback
         
         if (representsAFunction) {
             // turn:
