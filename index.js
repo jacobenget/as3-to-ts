@@ -6,7 +6,8 @@ var Parser = require('./lib/parse/parser'),
     Emitter = require('./lib/emit/emitter'),
     KeyWords = require('./lib/syntax/keywords'),
     Operators = require('./lib/syntax/operators'),
-    NodeKind = require('./lib/syntax/nodeKind');
+    NodeKind = require('./lib/syntax/nodeKind'),
+    Node = require('./lib/syntax/node');
 
 Parser.parse = parse;
 
@@ -16,7 +17,8 @@ module.exports = {
     Emitter: Emitter,
     KeyWords: KeyWords,
     Operators: Operators,
-    NodeKind: NodeKind
+    NodeKind: NodeKind,
+    Node: Node
 };
 
 
