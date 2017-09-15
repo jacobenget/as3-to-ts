@@ -359,15 +359,17 @@ function parseUnaryExpression(parser:AS3Parser):Node {
         nextToken(parser);
         result = createNode(NodeKind.PRE_DEC, {start: start, end: index}, parseUnaryExpression(parser));
     } else if (tokIs(parser, Operators.MINUS)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.MINUS, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.MINUS, {start: start, end: index}, parseUnaryExpression(parser));
     //
     // Having PLUS_AS2 emits wrong AST when a method is called "add"
     // } else if (tokIs(parser, Operators.PLUS) || tokIs(parser, Operators.PLUS_AS2)) {
     //
     } else if (tokIs(parser, Operators.PLUS)) {
+        let start = parser.tok.index;
         nextToken(parser);
-        result = createNode(NodeKind.PLUS, {start: parser.tok.index, end: index}, parseUnaryExpression(parser));
+        result = createNode(NodeKind.PLUS, {start: start, end: index}, parseUnaryExpression(parser));
     } else {
         return parseUnaryExpressionNotPlusMinus(parser);
     }
