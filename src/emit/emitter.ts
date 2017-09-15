@@ -1279,41 +1279,6 @@ function emitMethod(emitter: Emitter, node: Node): void {
     }
 
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
-        if (node.kind === NodeKind.GET) {
-            // Problem: ActionScript allows paired 'get' and 'set methods to have different types.
-            // TypeScript does not allow this, so the types of the 'get' and 'set' methods need to match.
-            // Fix here involves ignoring the type on the 'get' and using the type on the 'set' for the 'get' instead
-
-            let getIsStatic = hasStaticModifer(node);
-
-            // find all 'set' nodes that appear in the same class, that have the same name, and are the same 'static-ness'
-            let matchingSetNodes = node.parent
-                .findChildren(NodeKind.SET)
-                .filter(sibling => sibling.text === node.text)
-                .filter(sibling => getIsStatic === hasStaticModifer(sibling));
-
-            assert(matchingSetNodes.length <= 1); // there should be at most one such matching set node
-
-            if (matchingSetNodes.length > 0) {
-                // and if we found a matching set node, use its type for this 'get' node
-                let parameterList = matchingSetNodes[0].findChild(
-                    NodeKind.PARAMETER_LIST
-                );
-                let parameterNode = parameterList.findChild(NodeKind.PARAMETER);
-                let nameTypeInit = parameterNode.findChild(
-                    NodeKind.NAME_TYPE_INIT
-                );
-                if (
-                    nameTypeInit.findChild(NodeKind.TYPE) !== null &&
-                    node.findChild(NodeKind.TYPE) !== null
-                ) {
-                    let type = nameTypeInit.findChild(NodeKind.TYPE);
-                    node.findChild(NodeKind.TYPE).text = type.text;
-                } else {
-                    // TODO: handle cases where either the 'get' or the 'set' node's type is more complicated than a single NodeKind.TYPE (i.e. it's a NodeKind.VECTOR)
-                }
-            }
-        }
         visitNodes(emitter, node.getChildFrom(NodeKind.NAME));
     });
 }
