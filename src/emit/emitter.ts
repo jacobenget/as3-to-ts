@@ -1843,7 +1843,7 @@ export function identifierHasDefinition(emitter: Emitter, identifier: string) {
     return !(!emitter.findDefInScope(identifier) &&
         emitter.currentClassName &&
         GLOBAL_NAMES.indexOf(identifier) === -1 &&
-        TYPE_REMAP[identifier] === undefined &&
+        !TYPE_REMAP.hasOwnProperty(identifier) &&
         identifier !== emitter.currentClassName);
 }
 
