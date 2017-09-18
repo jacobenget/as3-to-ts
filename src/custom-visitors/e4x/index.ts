@@ -30,6 +30,12 @@ function visit(emitter: Emitter, node: Node): boolean {
         }
     } else if (node.kind === NodeKind.XML_LITERAL) {
         emitter.ensureImportIdentifier('XML', "e4x_shim", false);
+    } else if (node.kind === NodeKind.CALL) {
+        if (node.children[0].kind === NodeKind.IDENTIFIER) {
+            if (typesExportedFromShim.indexOf(node.children[0].text) !== -1) {
+                emitter.ensureImportIdentifier(node.children[0].text, "e4x_shim", false);
+            }
+        }
     }
     
     if (node.kind === NodeKind.ASSIGN) {
