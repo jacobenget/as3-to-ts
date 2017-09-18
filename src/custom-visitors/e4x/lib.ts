@@ -25,7 +25,7 @@ export function isAnAccessorOnAnXmlValue(emitter: Emitter, node: Node): boolean 
         let isKeyword = Keywords.isKeyWord(node.text);
         let weAreInsideAnE4xFilter = isInsideE4xFilterBody(node);
         let identifierDoesNotHaveDefinition = !identifierHasDefinition(emitter, node.text);
-        let identiferLikelyReferencesAType = node.text.match(/^[A-Z]/);
+        let identiferLikelyReferencesAType = /^[A-Z]/.test(node.text);
 
         if (!isKeyword && identifierDoesNotHaveDefinition && weAreInsideAnE4xFilter && !identiferLikelyReferencesAType) {
             return true;
