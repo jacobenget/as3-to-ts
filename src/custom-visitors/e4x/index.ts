@@ -7,6 +7,7 @@ import emitFilter from './filter';
 import emitIdent from './identifier';
 import emitAccessor from './accessors';
 import emitDelete from './delete';
+import emitLiteral from './literal';
 
 import * as assert from 'assert';
 
@@ -27,6 +28,8 @@ function visit(emitter: Emitter, node: Node): boolean {
                 emitter.ensureImportIdentifier(node.lastChild.text, "e4x_shim", false);
             }
         }
+    } else if (node.kind === NodeKind.XML_LITERAL) {
+        emitter.ensureImportIdentifier('XML', "e4x_shim", false);
     }
     
     if (node.kind === NodeKind.ASSIGN) {
@@ -37,6 +40,8 @@ function visit(emitter: Emitter, node: Node): boolean {
         return emitIdent(emitter, node);
     } else if (node.kind === NodeKind.DELETE) {
         return emitDelete(emitter, node);
+    } else if (node.kind === NodeKind.XML_LITERAL) {
+        return emitLiteral(emitter, node);
     } else {
         return emitAccessor(emitter, node);
     }
