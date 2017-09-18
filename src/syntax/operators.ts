@@ -19,7 +19,6 @@ export let DOUBLE_QUOTE = '"';
 export let DOUBLE_SHIFT_LEFT = '<<';
 export let DOUBLE_SHIFT_RIGHT = '>>';
 export let EQUAL = '=';
-export let EXPONENTIATION_EQUAL = '**=';
 export let INCREMENT = '++';
 export let INFERIOR = '<';
 export let INFERIOR_AS2 = 'lt';

@@ -152,7 +152,7 @@ function parseAssignmentExpression(parser:AS3Parser):Node {
     || tokIs(parser, Operators.PLUS_EQUAL) || tokIs(parser, Operators.MINUS_EQUAL)
     || tokIs(parser, Operators.TIMES_EQUAL) || tokIs(parser, Operators.DIVIDED_EQUAL)
     || tokIs(parser, Operators.MODULO_EQUAL) || tokIs(parser, Operators.AND_EQUAL) || tokIs(parser, Operators.OR_EQUAL)
-    || tokIs(parser, Operators.XOR_EQUAL) || tokIs(parser, Operators.EXPONENTIATION_EQUAL)
+    || tokIs(parser, Operators.XOR_EQUAL)
     || tokIs(parser, Operators.LEFT_SHIFT_EQUAL) || tokIs(parser, Operators.RIGHT_SHIFT_EQUAL) || tokIs(parser, Operators.UNSIGNED_RIGHT_SHIFT_EQUAL)
     || tokIs(parser, Operators.DOUBLE_AND_EQUAL) || tokIs(parser, Operators.DOUBLE_OR_EQUAL)) {
         result.children.push(createNode(NodeKind.OP, {tok: parser.tok}));
