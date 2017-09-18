@@ -4,9 +4,11 @@ import * as Operators from '../../syntax/operators'
 import Emitter, { visitNode } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlValue } from './lib';
+import { isAnAccessorOnAnXmlValue, producesXmlValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
+    assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
+    
     const lhs = node.children[0];
     const op = node.children[1];
     const rhs = node.children[2];
@@ -88,6 +90,27 @@ export default function(emitter: Emitter, node: Node) {
         emitter.catchup(rhs.end);
         
         //  8. emit ')'
+        emitter.insert(')');
+        
+        return true;
+    } else if (op.text === Operators.PLUS_EQUAL && producesXmlValue(emitter, lhs)) {
+
+        emitter.catchup(node.start);
+        visitNode(emitter, lhs);
+        emitter.catchup(op.start);
+        emitter.insert('=');
+        emitter.skipTo(op.end);
+        emitter.catchup(rhs.start);
+
+        emitter.skipTo(lhs.start);
+        visitNode(emitter, lhs);
+        emitter.catchup(lhs.end);
+
+        emitter.insert('.plus');
+        emitter.insert('(');
+            emitter.skipTo(rhs.start);
+            visitNode(emitter, rhs);
+            emitter.catchup(rhs.end);
         emitter.insert(')');
         
         return true;
