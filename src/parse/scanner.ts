@@ -248,9 +248,9 @@ function nextToken(scanner: AS3Scanner): Token {
         case '%':
             return scanCharacterSequence(scanner, currentCharacter, ['%=']);
         case '&':
-            return scanCharacterSequence(scanner, currentCharacter, ['&&', '&=']);
+            return scanCharacterSequence(scanner, currentCharacter, ['&&', '&=', '&&=']);
         case '|':
-            return scanCharacterSequence(scanner, currentCharacter, ['||', '|=']);
+            return scanCharacterSequence(scanner, currentCharacter, ['||', '|=', '||=']);
         case '^':
             return scanCharacterSequence(scanner, currentCharacter, ['^=']);
         case '>':

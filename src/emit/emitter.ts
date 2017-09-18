@@ -144,6 +144,7 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
     [NodeKind.BREAK]: emitLoopBranch,
     [NodeKind.CONTINUE]: emitLoopBranch,
+    [NodeKind.ASSIGN]: emitAssignment,
 };
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -1973,4 +1974,42 @@ function emitLoopBranch(emitter: Emitter, node: Node): void {
     // The only thing that can be in a break is a label and it shouldn't
     //  need any special treatment.  Just bundle it all up and call it good.
     emitter.catchup(node.end);
+}
+
+function emitAssignment(emitter: Emitter, node: Node): void {
+     let operation = node.findChild(NodeKind.OP);
+    
+     if (operation.text === Operators.DOUBLE_AND_EQUAL || operation.text === Operators.DOUBLE_OR_EQUAL) {
+         assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
+
+         let lhs =  node.children[0];
+         let rhs =  node.children[2];
+
+         emitter.catchup(node.start);
+         visitNode(emitter, lhs);
+         emitter.catchup(operation.start);
+         emitter.insert('=');
+         emitter.skipTo(operation.end);
+         emitter.catchup(rhs.start);
+         
+         emitter.skipTo(lhs.start);
+         visitNode(emitter, lhs);
+         emitter.catchup(lhs.end);
+         
+         if (operation.text === Operators.DOUBLE_AND_EQUAL) {
+             emitter.insert(' && ');
+         } else if ( operation.text === Operators.DOUBLE_OR_EQUAL) {
+             emitter.insert(' || ');
+         } else {
+             assert(false);
+         }
+         
+         emitter.skipTo(rhs.start);
+         visitNode(emitter, rhs);
+         
+     } else {
+         // default behavior
+         emitter.catchup(node.start);
+         visitNodes(emitter, node.children);
+     }
 }
