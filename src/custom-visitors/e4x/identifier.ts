@@ -5,10 +5,10 @@ import {isAnAccessorOnAnXmlValue} from './lib';
 import * as assert from 'assert';
 
 export default function(emitter: Emitter, node: Node) {
+
+    let representsAFunction = node.parent.kind == NodeKind.CALL;
     
     if (isAnAccessorOnAnXmlValue(emitter, node)) {
-        
-        let representsAFunction = node.parent.kind == NodeKind.CALL;
         
         assert(node.text.indexOf('*') === -1);  // no code yet to include accessing either '*' or '@*' in an unqualified way inside a filter callback
         
@@ -60,7 +60,21 @@ export default function(emitter: Emitter, node: Node) {
         }
         
         return true;
-    } else {
-        return false;
+    } else if (node.text === 'XML' || node.text === 'XMLList') {
+        // replace calls to 'XML/XMLList' that aren't explicitly creating a 'new' object with calls to equivalent static functions
+        
+        let targetOfACallToNew = node.parent.parent.kind === NodeKind.NEW;
+        
+        if (representsAFunction && !targetOfACallToNew) {
+            emitter.catchup(node.start);
+            emitter.insert(node.text);
+            emitter.insert('.');
+            emitter.insert(node.text === 'XML' ? 'convertToXml' : 'convertToXmlList');
+            emitter.skipTo(node.end);
+            
+            return true;
+        }
     }
+    
+    return false;
 }
