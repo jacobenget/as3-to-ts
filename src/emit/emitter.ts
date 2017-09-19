@@ -145,6 +145,7 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.BREAK]: emitLoopBranch,
     [NodeKind.CONTINUE]: emitLoopBranch,
     [NodeKind.ASSIGN]: emitAssignment,
+    [NodeKind.BLOCK]: emitBlock,
 };
 
 export function visitNodes(emitter: Emitter, nodes: Node[]): void {
@@ -1282,6 +1283,67 @@ function emitMethod(emitter: Emitter, node: Node): void {
     emitter.withScope(getFunctionDeclarations(emitter, node), () => {
         visitNodes(emitter, node.getChildFrom(NodeKind.NAME));
     });
+}
+
+function emitBlock(emitter: Emitter, node: Node): void {
+    if (parentChainHasKinds(node, [NodeKind.FUNCTION, NodeKind.CONTENT, NodeKind.CLASS]) && node.parent.findChild(NodeKind.NAME).text === emitter.currentClassName) {
+        // we're emitting the body of a constructor
+
+        // so ensure there is a call to 'super' in this constructor if and only if this class has a parent class
+        let hasParentClass = node.parent.parent.parent.findChild(NodeKind.EXTENDS) !== null;
+
+        let isCallToSuper = (node: Node) =>
+            node.kind === NodeKind.CALL &&
+            node.children[0].kind === NodeKind.IDENTIFIER &&
+            node.children[0].text === 'super';
+
+        if (hasParentClass) {
+
+            // insert a generic call to 'super' if no such call exists
+
+            // search for an already existing call to 'super'
+            let callsToSuper = node.children.filter(isCallToSuper);
+
+            assert(callsToSuper.length <= 1);   // should be at most one call to 'super'
+
+            emitter.catchup(node.start);
+            
+            if (node.children.length > 0) {
+                emitter.catchup(node.children[0].start);
+            }
+            
+            if (callsToSuper.length !== 1) {
+                let [terminatingCharacter, leftPadding] = /(\n|\{)(.*)?$/.exec(emitter.output).slice(1);
+                
+                // if we didn't encounter a call to the super constructor, add our own call with 0 args
+                // Which also happens to be just what Flash does in this case:
+                //      "If flash doesn't detect a call to super() in your child constructor then flash will implicitly call super() before your child's constructor."
+                //      https://stackoverflow.com/a/7538926/2969105
+                emitter.insert('super();');
+                if (terminatingCharacter === '\n') {
+                    emitter.insert('\n');
+                }
+                emitter.insert(leftPadding);
+            }
+
+            visitNodes(emitter, node.children);
+            
+        } else {
+            // avoid emitting any call to 'super', but visit all other children normally
+            emitter.catchup(node.start);
+            node.children.forEach(child => {
+                if (isCallToSuper(child)) {
+                    emitter.commentNode(child, true);
+                } else {
+                    visitNode(emitter, child);
+                }
+            });
+        }
+    } else {
+        // default behavior
+        emitter.catchup(node.start);
+        visitNodes(emitter, node.children);
+    }
 }
 
 function emitPropertyDecl(emitter: Emitter, node: Node, isConst = false): void {
