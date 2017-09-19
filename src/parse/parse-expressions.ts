@@ -384,8 +384,18 @@ function parseUnaryExpressionNotPlusMinus(parser:AS3Parser):Node {
     let index = parser.tok.index;
     if (tokIs(parser, Keywords.DELETE)) {
         nextToken(parser, true);
+        let encapsulated = false;
+        if (tokIs(parser, Operators.LEFT_PARENTHESIS)) {
+            nextToken(parser, true);
+            encapsulated = true;
+        }
         let expr = parseExpression(parser);
+        if (encapsulated) {
+            assert(tokIs(parser, Operators.RIGHT_PARENTHESIS), 'Expected encapsulated DELETE to end with parenthesis.');
+            nextToken(parser, true);
+        }
         result = createNode(NodeKind.DELETE, {start: index, end: expr.end}, expr);
+        
     } else if (tokIs(parser, Keywords.VOID)) {
         nextToken(parser, true);
         let expr = parseExpression(parser);

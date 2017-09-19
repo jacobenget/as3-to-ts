@@ -970,7 +970,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
             let typeRemapped =
                 emitter.getTypeRemap(typeNode.text) || typeNode.text;
             let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
-            emitter.insert(`let ${nameNode.text}:${typeRemapped};\n${leftPadding}`);
+            // emitter.insert(`var ${nameNode.text}:${typeRemapped};\n${leftPadding}`);
         } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
@@ -983,6 +983,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
         }
         emitter.catchup(node.start + Keywords.FOR.length + 1);
         emitter.catchup(varNode.start);
+        emitter.insert('var ');
         emitter.insert(`${nameNode.text}`);
         emitter.skipTo(varNode.end);
     } else {
@@ -1012,9 +1013,6 @@ function emitForEach(emitter: Emitter, node: Node): void {
             let typeRemapped =
                 emitter.getTypeRemap(typeNode.text) || typeNode.text;
             let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
-            emitter.insert(
-                `let ${nameNode.text}:${typeRemapped};\n${leftPadding}`
-            );
         } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
@@ -1028,6 +1026,7 @@ function emitForEach(emitter: Emitter, node: Node): void {
         emitter.catchup(node.start + Keywords.FOR.length);
         emitter.consume('each', varNode.start);
         emitter.catchup(varNode.start);
+        emitter.insert('var ');
         emitter.insert(`${nameNode.text}`);
         emitter.skipTo(varNode.end);
     } else {
