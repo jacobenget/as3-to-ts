@@ -1869,8 +1869,11 @@ function emitRelation(emitter: Emitter, node: Node): void {
                     emitter.ensureImportIdentifier(typeName);
                 }
 
-                typeName = emitter.getTypeRemap(typeName) || typeName;
-
+                let remappedType = emitter.getTypeRemap(typeName);
+                if (remappedType && !remappedType.endsWith('[]')) { // 'instanceof' doesn't work with on array types, so avoid the remapping if the remapped type ends with '[]'
+                    typeName = remappedType;
+                }
+                
                 emitter.insert(typeName);
                 emitter.skipTo(constructorExpression.end);
             } else {
