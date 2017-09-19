@@ -8,6 +8,7 @@ import emitIdent from './identifier';
 import emitAccessor from './accessors';
 import emitDelete from './delete';
 import emitLiteral from './literal';
+import emitAdd from './add';
 
 import * as assert from 'assert';
 
@@ -48,6 +49,8 @@ function visit(emitter: Emitter, node: Node): boolean {
         return emitDelete(emitter, node);
     } else if (node.kind === NodeKind.XML_LITERAL) {
         return emitLiteral(emitter, node);
+    } else if (node.kind === NodeKind.ADD) {
+        return emitAdd(emitter, node);
     } else {
         return emitAccessor(emitter, node);
     }
