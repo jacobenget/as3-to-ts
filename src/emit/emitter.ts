@@ -1849,35 +1849,48 @@ function emitRelation(emitter: Emitter, node: Node): void {
             );
             emitter.skipTo(constructorExpression.end);
         } else {
-            visitNode(emitter, valueExpression);
-            emitter.catchup(is.start);
-            emitter.insert(Keywords.INSTANCE_OF);
-            emitter.skipTo(is.end);
-            
-            if (constructorExpression.kind === NodeKind.IDENTIFIER) {
-                emitter.catchup(constructorExpression.start);
-
-                let typeName = constructorExpression.text;
-
-                // ensure type is imported
-                if (
-                    GLOBAL_NAMES.indexOf(typeName) === -1 &&
-                    !emitter.getTypeRemap(typeName) &&
-                    TYPE_REMAP_VALUES.indexOf(typeName) === -1 &&
-                    emitter.findDefInScope(typeName) === null
-                ) {
-                    emitter.ensureImportIdentifier(typeName);
-                }
-
-                let remappedType = emitter.getTypeRemap(typeName);
-                if (remappedType && !remappedType.endsWith('[]')) { // 'instanceof' doesn't work with on array types, so avoid the remapping if the remapped type ends with '[]'
-                    typeName = remappedType;
-                }
+            if (constructorExpression.kind === NodeKind.IDENTIFIER && constructorExpression.text === 'Object') {
+                // every value other than 'null' and 'undefined' in ActionScript evaluate to 'true' when tested if their instances of 'Object'
+                // so just change this expression to 'x != null', which will be equivalent to this check
                 
-                emitter.insert(typeName);
+                visitNode(emitter, valueExpression);
+                emitter.catchup(is.start);
+                emitter.insert('!= null');
                 emitter.skipTo(constructorExpression.end);
             } else {
-                visitNode(emitter, constructorExpression);
+
+                visitNode(emitter, valueExpression);
+                emitter.catchup(is.start);
+                emitter.insert(Keywords.INSTANCE_OF);
+                emitter.skipTo(is.end);
+
+                if (constructorExpression.kind === NodeKind.IDENTIFIER) {
+                    emitter.catchup(constructorExpression.start);
+
+                    let typeName = constructorExpression.text;
+
+                    // ensure type is imported
+                    if (
+                        GLOBAL_NAMES.indexOf(typeName) === -1 &&
+                        !emitter.getTypeRemap(typeName) &&
+                        TYPE_REMAP_VALUES.indexOf(typeName) === -1 &&
+                        emitter.findDefInScope(typeName) === null
+                    ) {
+                        emitter.ensureImportIdentifier(typeName);
+                    }
+
+                    let remappedType = emitter.getTypeRemap(typeName);
+                    // 'instanceof' doesn't work with on array types, so avoid the remapping if the remapped type ends with '[]'
+                    // (truly this probably hints to a larger issue if it occurs, but currently this is the best fix, and any custom visitor fighting with this workaround can handle this in a custom way)
+                    if (remappedType && !remappedType.endsWith('[]')) {
+                        typeName = remappedType;
+                    }
+
+                    emitter.insert(typeName);
+                    emitter.skipTo(constructorExpression.end);
+                } else {
+                    visitNode(emitter, constructorExpression);
+                }
             }
         }
 
