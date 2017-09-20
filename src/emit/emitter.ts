@@ -878,9 +878,13 @@ function emitFunction(emitter: Emitter, node: Node): void {
         )
     ) {
         // we're emitting a function that's defined inside a member function,
-        // meaning that the object that this member function is being called upon has it's member variables in scope,
+        // meaning that the object that this member function is being called upon has its member variables in scope,
         // so we should transform this function declaration into a fat arrow function to capture the value of 'this'
-        // (elsewhere, the emitter will be prepending 'this' to references to variables that weren't defined lcoally)
+        // (elsewhere, the emitter will be prepending 'this' to references to variables that weren't defined locally)
+        // NOTE: this choice to transform the lambda expression into a fat arrow function is likely wrong if the lambda body already references 'this',
+        // TODO: detect this usage of 'this' inside the body and avoid such a transformation to a fat arrow function,
+        // such functions in ActionScript will only become correct TypeScript if they don't reference the 'this' instance in the lambda statement's scope through the scope chain,
+        // but instead assign that value to something like 'self' in the scope where the lambda is declared and then access this value in the lambda body through 'self'.
 
         // assert that there is no reason to call 'emitDeclaration', because there's no metadata or modifications on this function
         assert(node.findChild(NodeKind.META_LIST) === null);
