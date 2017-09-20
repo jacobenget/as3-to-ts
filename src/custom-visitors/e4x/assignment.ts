@@ -4,7 +4,7 @@ import * as Operators from '../../syntax/operators'
 import Emitter, { visitNode } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlValue, producesXmlValue } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
@@ -13,7 +13,7 @@ export default function(emitter: Emitter, node: Node) {
     const op = node.children[1];
     const rhs = node.children[2];
     
-    if (isAnAccessorOnAnXmlValue(emitter, lhs)) {
+    if (isAnAccessorOnAnXmlOrXmlListValue(emitter, lhs)) {
 
         assert(op.text === Operators.EQUAL);    // we have no logic yet to handle expressions like '+=' when the rhs is XML/XMLList, so assert if something like this is encountered
 
@@ -93,7 +93,7 @@ export default function(emitter: Emitter, node: Node) {
         emitter.insert(')');
         
         return true;
-    } else if (op.text === Operators.PLUS_EQUAL && producesXmlValue(emitter, lhs)) {
+    } else if (op.text === Operators.PLUS_EQUAL && producesXmlOrXmlListValue(emitter, lhs)) {
 
         emitter.catchup(node.start);
         visitNode(emitter, lhs);

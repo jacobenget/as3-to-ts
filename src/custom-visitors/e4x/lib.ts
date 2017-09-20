@@ -14,10 +14,10 @@ function isInsideE4xFilterBody(node: Node) {
     return node.getParentChain().filter(ancestor => isE4xFilterBody(ancestor)).length > 0;
 }
 
-export function isAnAccessorOnAnXmlValue(emitter: Emitter, node: Node): boolean {
+export function isAnAccessorOnAnXmlOrXmlListValue(emitter: Emitter, node: Node): boolean {
     if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR || node.kind === NodeKind.E4X_ATTR || node.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS || node.kind === NodeKind.E4X_STAR) {
         if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR) {
-            return producesXmlValue(emitter, node.children[0]);
+            return producesXmlOrXmlListValue(emitter, node.children[0]);
         } else {
             return true;
         }
@@ -35,19 +35,32 @@ export function isAnAccessorOnAnXmlValue(emitter: Emitter, node: Node): boolean 
     }
 }
 
+export function producesXmlOrXmlListValue(emitter: Emitter, node: Node): boolean {
+    return producesXmlValue(emitter, node) || producesXmlListValue(emitter, node);
+}
+
 export function producesXmlValue(emitter: Emitter, node: Node): boolean {
     if (node.kind === NodeKind.IDENTIFIER) {
-        if (isAnAccessorOnAnXmlValue(emitter, node)) {
+        const decl = emitter.scope.declarations.find(n => n.name === node.text);
+        return decl && decl.type === 'XML';
+    } else {
+        return false;
+    }
+}
+
+export function producesXmlListValue(emitter: Emitter, node: Node): boolean {
+    if (node.kind === NodeKind.IDENTIFIER) {
+        if (isAnAccessorOnAnXmlOrXmlListValue(emitter, node)) {
             return true;
         }
-        
+
         const decl = emitter.scope.declarations.find(n => n.name === node.text);
-        return decl && (decl.type === 'XML' || decl.type === 'XMLList');
+        return decl && decl.type === 'XMLList';
     } else if (node.kind === NodeKind.E4X_ATTR || node.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS || node.kind === NodeKind.E4X_FILTER || node.kind === NodeKind.E4X_STAR) {
         return true;
     } else if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR) {
         assert(node.children.length > 0);
-        return producesXmlValue(emitter, node.children[0]);
+        return producesXmlOrXmlListValue(emitter, node.children[0]);
     } else {
         return false;
     }

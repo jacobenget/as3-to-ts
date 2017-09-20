@@ -3,7 +3,7 @@ import * as Operators from '../../syntax/operators'
 import Emitter, { visitNode, visitNodes } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { producesXmlValue } from './lib';
+import { producesXmlOrXmlListValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
 
@@ -11,7 +11,7 @@ export default function(emitter: Emitter, node: Node) {
     const op = node.children[1];
     const rhs = node.children[2];
     
-    if (op.text === Operators.PLUS && producesXmlValue(emitter, lhs) && producesXmlValue(emitter, rhs)) {
+    if (op.text === Operators.PLUS && producesXmlOrXmlListValue(emitter, lhs) && producesXmlOrXmlListValue(emitter, rhs)) {
 
         assert(node.children.length === 3); // no support yet for chained additions
         

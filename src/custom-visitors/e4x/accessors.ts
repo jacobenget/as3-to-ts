@@ -3,10 +3,10 @@ import NodeKind from '../../syntax/nodeKind';
 import Emitter, { visitNode } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlValue } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue } from './lib';
 
 export default function emitAccessor(emitter: Emitter, node: Node) {
-    if (isAnAccessorOnAnXmlValue(emitter, node)) {
+    if (isAnAccessorOnAnXmlOrXmlListValue(emitter, node)) {
 
         if (node.kind === NodeKind.DOT && node.parent.kind == NodeKind.CALL) {
             // this is a method call on an XML/XMLList object, which shouldn't be transformed

@@ -4,12 +4,12 @@ import * as Keywords from '../../syntax/keywords';
 import Emitter, { visitNode } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlValue } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     const deleteTarget = node.children[0];
 
-    if (isAnAccessorOnAnXmlValue(emitter, deleteTarget)) {
+    if (isAnAccessorOnAnXmlOrXmlListValue(emitter, deleteTarget)) {
 
         let root = deleteTarget.children[0];
         let tail = deleteTarget.children[1];
