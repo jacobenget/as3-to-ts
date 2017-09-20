@@ -41,7 +41,7 @@ export function producesXmlOrXmlListValue(emitter: Emitter, node: Node): boolean
 
 export function producesXmlValue(emitter: Emitter, node: Node): boolean {
     if (node.kind === NodeKind.IDENTIFIER) {
-        const decl = emitter.scope.declarations.find(n => n.name === node.text);
+        const decl = emitter.findDefInScope(node.text);
         return decl && decl.type === 'XML';
     } else {
         return false;
@@ -54,7 +54,7 @@ export function producesXmlListValue(emitter: Emitter, node: Node): boolean {
             return true;
         }
 
-        const decl = emitter.scope.declarations.find(n => n.name === node.text);
+        const decl = emitter.findDefInScope(node.text);
         return decl && decl.type === 'XMLList';
     } else if (node.kind === NodeKind.E4X_ATTR || node.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS || node.kind === NodeKind.E4X_FILTER || node.kind === NodeKind.E4X_STAR) {
         return true;
