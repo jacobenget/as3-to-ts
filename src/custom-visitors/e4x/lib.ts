@@ -47,6 +47,36 @@ export function producesXmlListValue(emitter: Emitter, node: Node): boolean {
     return getExpressionType(emitter, node) === 'XMLList'
 }
 
+let returnTypeFromXmlMethod: { [key: string]: string; } = {
+    'attribute': 'XMLList',
+    'attributes': 'XMLList',
+    'child': 'XMLList',
+    'children': 'XMLList',
+    'comments': 'XMLList',
+    'copy': 'XML',
+    'descendants': 'XMLList',
+    'elements': 'XMLList',
+    'normalize': 'XML',
+    'processingInstructions': 'XMLList',
+    'text': 'XMLList',
+    'valueOf': 'XML',
+};
+
+let returnTypeFromXmlListMethod: { [key: string]: string; } = {
+    'attribute': 'XMLList',
+    'attributes': 'XMLList',
+    'child': 'XMLList',
+    'children': 'XMLList',
+    'comments': 'XMLList',
+    'copy': 'XMLList',
+    'descendants': 'XMLList',
+    'elements': 'XMLList',
+    'normalize': 'XMLList',
+    'processingInstructions': 'XMLList',
+    'text': 'XMLList',
+    'valueOf': 'XMLList',
+};
+
 export function getExpressionType(emitter: Emitter, node: Node): string {
     if (node.kind === NodeKind.IDENTIFIER) {
         if (isAnAccessorOnAnXmlOrXmlListValue(emitter, node)) {
@@ -74,6 +104,14 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
         assert(node.children.length > 0);
         if (producesXmlOrXmlListValue(emitter, node.children[0])) {
             return 'XMLList';
+        }
+    } else if (node.kind === NodeKind.CALL) {
+        if (node.children[0].kind === NodeKind.DOT) {
+            if (producesXmlValue(emitter, node.children[0].children[0]) && returnTypeFromXmlMethod.hasOwnProperty(node.children[0].children[1].text)) {
+                return returnTypeFromXmlMethod[node.children[0].children[1].text];
+            } else if (producesXmlListValue(emitter, node.children[0].children[0]) && returnTypeFromXmlListMethod.hasOwnProperty(node.children[0].children[1].text)) {
+                return returnTypeFromXmlListMethod[node.children[0].children[1].text];
+            }
         }
     }
     
