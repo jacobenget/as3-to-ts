@@ -1,10 +1,10 @@
 import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
 import * as Operators from '../../syntax/operators'
-import Emitter, { visitNode } from '../../emit/emitter';
+import Emitter, { visitNode, visitNodes } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue, producesXmlListValue, getConversionFunctionNameFromActionScriptType, emitExpressionWithConversion } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
@@ -114,6 +114,27 @@ export default function(emitter: Emitter, node: Node) {
         emitter.insert(')');
         
         return true;
+    } else if (op.text === Operators.EQUAL && producesXmlListValue(emitter, rhs)) {
+
+        // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
+        // based on what the type of the receiving variable when doing assignment.
+        // So we'll to detect such situations and inject the needed conversions explicitly
+
+        if (lhs.kind === NodeKind.IDENTIFIER) {
+            const decl = emitter.findDefInScope(lhs.text);
+            if (decl && decl.type) {
+
+                let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, decl.type);
+
+                if (conversionFunctionName) {
+                    assert(node.children.length === 3);
+                    
+                    visitNodes(emitter, [lhs, op]);
+                    emitExpressionWithConversion(emitter, rhs, conversionFunctionName);
+                    return true;
+                }
+            }
+        }
     }
     
     return false;

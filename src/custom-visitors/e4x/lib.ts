@@ -1,6 +1,6 @@
 import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
-import Emitter, {identifierHasDefinition} from '../../emit/emitter';
+import Emitter, {identifierHasDefinition, visitNode} from '../../emit/emitter';
 import * as assert from 'assert';
 import * as Keywords from '../../syntax/keywords';
 
@@ -64,4 +64,47 @@ export function producesXmlListValue(emitter: Emitter, node: Node): boolean {
     } else {
         return false;
     }
+}
+
+export function getConversionFunctionNameFromActionScriptType(emitter: Emitter, targetTypeInActionScript: string) {
+    let remappedType = emitter.getTypeRemap(targetTypeInActionScript) || targetTypeInActionScript;
+
+    let conversionFunctionNameFromRemappedType: { [key: string]: string; } = {
+        ['string']: 'String',
+        ['number']: 'Number',
+        ['XML']: 'XML.convertToXml',
+    };
+
+    if (conversionFunctionNameFromRemappedType.hasOwnProperty(remappedType)) {
+        return conversionFunctionNameFromRemappedType[remappedType];
+    } else {
+        return null;
+    }
+}
+
+export function emitExpressionWithConversion(emitter: Emitter, expressionNode :Node, conversionFunctionName: string): void {
+    emitter.catchup(expressionNode.start);
+    emitter.insert(conversionFunctionName);
+    emitter.insert('(');
+        visitNode(emitter, expressionNode);
+        emitter.catchup(expressionNode.end);
+    emitter.insert(')');
+}
+
+export function emitExpressionWithPossibleConversionTo(emitter: Emitter, expressionNode: Node, targetTypeInActionScript: string): boolean {
+    if (producesXmlListValue(emitter, expressionNode)) {
+
+        // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
+        // based on what the type of the receiving variable when doing assignment.
+        // So we'll to detect such situations and inject the needed conversions explicitly
+
+        let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, targetTypeInActionScript);
+
+        if (conversionFunctionName) {
+            emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
+            return true;
+        }
+    }
+    
+    return false;
 }
