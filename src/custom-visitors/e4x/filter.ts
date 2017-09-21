@@ -19,7 +19,7 @@ export default function(emitter: Emitter, node: Node) {
     assert(emitter.sourceBetween(emitter.index, emitter.index + 2) === '.('); // ensure we aren't skipping any comments between these tokens
     
     emitter.skip(2);    // skip the '.('
-    emitter.insert(`.filter((n$) =>`);
+    emitter.insert(`.filter(n$ =>`);
     // ensure there's a space after the fat arrow
     if (/\S/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
         emitter.insert(' ');
