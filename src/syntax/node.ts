@@ -113,11 +113,12 @@ export default class Node {
         return this.children[this.children.length - 1];
     }
 
+    // returns an array containing all ancestor nodes, in ascending order
     getParentChain(): Node[] {
         if (this.parent == null) {
             return [];
         } else {
-            return this.parent.getParentChain().concat(this.parent);
+            return [this.parent].concat(this.parent.getParentChain());
         }
     }
 }
