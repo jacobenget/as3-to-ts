@@ -969,7 +969,9 @@ function emitForIn(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if (!typeNode) {
+        if (typeNode) {
+            emitter.declareInScope({name: nameNode.text, type: typeNode.text});
+        } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
                 if (WARNINGS >= 1) {
@@ -1006,7 +1008,9 @@ function emitForEach(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if (!typeNode) {
+        if (typeNode) {
+            emitter.declareInScope({name: nameNode.text, type: typeNode.text});
+        } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
                 if (WARNINGS >= 1) {
