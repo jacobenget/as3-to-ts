@@ -142,21 +142,3 @@ export function emitExpressionWithConversion(emitter: Emitter, expressionNode :N
         emitter.catchup(expressionNode.end);
     emitter.insert(')');
 }
-
-export function emitExpressionWithPossibleConversionTo(emitter: Emitter, expressionNode: Node, targetTypeInActionScript: string): boolean {
-    if (producesXmlListValue(emitter, expressionNode)) {
-
-        // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
-        // based on what the type of the receiving variable when doing assignment.
-        // So we'll to detect such situations and inject the needed conversions explicitly
-
-        let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, targetTypeInActionScript);
-
-        if (conversionFunctionName) {
-            emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
-            return true;
-        }
-    }
-    
-    return false;
-}
