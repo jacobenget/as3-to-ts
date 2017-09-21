@@ -1,7 +1,10 @@
 import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
 import Emitter from '../../emit/emitter';
-import { producesXmlListValue, getConversionFunctionNameFromActionScriptType, emitExpressionWithConversion } from './lib';
+import {
+    producesXmlListValue, getConversionFunctionNameFromActionScriptType, emitExpressionWithConversion,
+    producesXmlOrXmlListValue, getExpressionType
+} from './lib';
 
 import emitAssign from './assignment';
 import emitFilter from './filter';
@@ -80,7 +83,7 @@ function visit(emitter: Emitter, node: Node): boolean {
 
             let expressionNode = node.children[0];
 
-            if (producesXmlListValue(emitter, expressionNode)) {
+            if (producesXmlOrXmlListValue(emitter, expressionNode)) {
 
                 // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
                 // based on what the type of the receiving variable when doing assignment.
@@ -91,7 +94,7 @@ function visit(emitter: Emitter, node: Node): boolean {
                 
                 let returnType = containingFunctionNode.findChild(NodeKind.TYPE);
                 
-                if (returnType) {
+                if (returnType && (returnType.text !== getExpressionType(emitter, expressionNode))) {
                     let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, returnType.text);
 
                     if (conversionFunctionName) {
