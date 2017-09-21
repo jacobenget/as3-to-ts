@@ -43,6 +43,13 @@ export function producesXmlValue(emitter: Emitter, node: Node): boolean {
     if (node.kind === NodeKind.IDENTIFIER) {
         const decl = emitter.findDefInScope(node.text);
         return decl && decl.type === 'XML';
+    } else if (node.kind === NodeKind.DOT) {
+        assert(node.children.length > 0);
+        if (node.children[0].kind === NodeKind.IDENTIFIER && node.children[0].text === 'this') { // check if we're directly referencing a value from 'this', which we may know the type of
+            assert(node.children[1].kind === NodeKind.LITERAL);
+            const decl = emitter.findDefInScope(node.children[1].text);
+            return decl && decl.type === 'XML';
+        }
     } else {
         return false;
     }
@@ -58,7 +65,16 @@ export function producesXmlListValue(emitter: Emitter, node: Node): boolean {
         return decl && decl.type === 'XMLList';
     } else if (node.kind === NodeKind.E4X_ATTR || node.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS || node.kind === NodeKind.E4X_FILTER || node.kind === NodeKind.E4X_STAR) {
         return true;
-    } else if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR) {
+    } else if (node.kind === NodeKind.DOT) {
+        assert(node.children.length > 0);
+        if (producesXmlOrXmlListValue(emitter, node.children[0])) {
+            return true;
+        } else if (node.children[0].kind === NodeKind.IDENTIFIER && node.children[0].text === 'this') { // check if we're directly referencing a value from 'this', which we may know the type of
+            assert(node.children[1].kind === NodeKind.LITERAL);
+            const decl = emitter.findDefInScope(node.children[1].text);
+            return decl && decl.type === 'XMLList';
+        }
+    } else if (node.kind === NodeKind.ARRAY_ACCESSOR) {
         assert(node.children.length > 0);
         return producesXmlOrXmlListValue(emitter, node.children[0]);
     } else {

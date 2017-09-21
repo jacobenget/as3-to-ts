@@ -120,8 +120,16 @@ export default function(emitter: Emitter, node: Node) {
         // based on what the type of the receiving variable when doing assignment.
         // So we'll to detect such situations and inject the needed conversions explicitly
 
+        let targetVarInScope: string = null;
+        
         if (lhs.kind === NodeKind.IDENTIFIER) {
-            const decl = emitter.findDefInScope(lhs.text);
+            targetVarInScope = lhs.text;
+        } else if (lhs.kind === NodeKind.DOT && lhs.children[0].kind === NodeKind.IDENTIFIER && lhs.children[0].text === 'this') {
+            targetVarInScope = lhs.children[1].text;
+        }
+
+        if (targetVarInScope) {
+            const decl = emitter.findDefInScope(targetVarInScope);
             if (decl && decl.type) {
 
                 let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, decl.type);
