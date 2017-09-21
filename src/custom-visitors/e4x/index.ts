@@ -73,6 +73,34 @@ function visit(emitter: Emitter, node: Node): boolean {
                 }
             }
         }
+    } else if (node.kind === NodeKind.RETURN) {
+
+        if (node.children.length > 0) {
+            assert(node.children.length === 1);
+
+            let expressionNode = node.children[0];
+
+            if (producesXmlListValue(emitter, expressionNode)) {
+
+                // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
+                // based on what the type of the receiving variable when doing assignment.
+                // So we'll to detect such situations and inject the needed conversions explicitly
+
+                let containingFunctionNode = node.getParentChain().filter(ancestor => ancestor.kind === NodeKind.FUNCTION || ancestor.kind === NodeKind.GET)[0];
+                assert(containingFunctionNode != null);
+                
+                let returnType = containingFunctionNode.findChild(NodeKind.TYPE);
+                
+                if (returnType) {
+                    let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, returnType.text);
+
+                    if (conversionFunctionName) {
+                        emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
+                        return true;
+                    }
+                }
+            }
+        }
     } else {
         return emitAccessor(emitter, node);
     }
