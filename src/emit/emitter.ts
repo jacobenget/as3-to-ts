@@ -969,13 +969,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if (typeNode) {
-            emitter.catchup(node.start);
-            let typeRemapped =
-                emitter.getTypeRemap(typeNode.text) || typeNode.text;
-            let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
-            // emitter.insert(`var ${nameNode.text}:${typeRemapped};\n${leftPadding}`);
-        } else {
+        if (!typeNode) {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
                 if (WARNINGS >= 1) {
@@ -1012,12 +1006,7 @@ function emitForEach(emitter: Emitter, node: Node): void {
         // emit variable type on for..of statements, but outside of the loop header.
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
-        if (typeNode) {
-            emitter.catchup(node.start);
-            let typeRemapped =
-                emitter.getTypeRemap(typeNode.text) || typeNode.text;
-            let leftPadding = /[ \t]*$/.exec(emitter.output)[0]; // all trailing whitespace
-        } else {
+        if (!typeNode) {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
                 if (WARNINGS >= 1) {
