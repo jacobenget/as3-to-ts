@@ -823,6 +823,7 @@ function getFunctionDeclarations(emitter: Emitter, node: Node): Declaration[] {
             }
             if (
                 node.kind !== NodeKind.FUNCTION &&
+                node.kind !== NodeKind.LAMBDA &&
                 node.children &&
                 node.children.length
             ) {
