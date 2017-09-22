@@ -995,7 +995,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
     emitter.insert('of ');
 
-    visitNodes(emitter, inNode.children);
+    visitNode(emitter, inNode);
     visitNode(emitter, blockNode);
 }
 
@@ -1036,7 +1036,7 @@ function emitForEach(emitter: Emitter, node: Node): void {
     emitter.skip(Keywords.IN.length + 1); // replace "in " with "of "
     emitter.insert('of ');
 
-    visitNodes(emitter, inNode.children);
+    visitNode(emitter, inNode);
     visitNode(emitter, blockNode);
 }
 
