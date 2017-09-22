@@ -27,20 +27,16 @@ export default function(emitter: Emitter, node: Node) {
         // respectively
 
         // General approach:
-        //  1. catchup to 'delete', then skip over 'delete' and any trailing whitespace
+        //  1. catchup to 'delete', then skip to root
         //  2. emit root
         //  3. emit .$delete( or .$deleteAttribute(
         //  4. emit tail
         //  5. emit ')'
         //  6. skip to end of node, to avoid any trailing ']'
 
-        //  1. catchup to 'delete', then skip over 'delete' and any trailing whitespace
+        //  1. catchup to 'delete', then skip to root
         emitter.catchup(node.start);
-        emitter.skip(Keywords.DELETE.length);
-        // skip all whitespace after 'delete'
-        while (/\s/.test(emitter.sourceBetween(emitter.index, emitter.index + 1))) {
-            emitter.skip(1);
-        }
+        emitter.skipTo(root.start);
         
         //  2. emit root
         visitNode(emitter, root);
