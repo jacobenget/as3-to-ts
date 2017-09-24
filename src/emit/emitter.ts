@@ -141,7 +141,6 @@ const VISITORS: { [kind: number]: NodeVisitor } = {
     [NodeKind.DOT]: emitDot,
     [NodeKind.LITERAL]: emitLiteral,
     [NodeKind.ARRAY]: emitArray,
-    [NodeKind.ARRAY_ACCESSOR]: emitArrayAccessor,
     [NodeKind.BREAK]: emitLoopBranch,
     [NodeKind.CONTINUE]: emitLoopBranch,
     [NodeKind.ASSIGN]: emitAssignment,
@@ -1602,17 +1601,6 @@ function emitNew(emitter: Emitter, node: Node): void {
     visitNodes(emitter, node.children);
     emitter.isNew = false;
     emitter.emitThisForNextIdent = true;
-}
-
-function emitArrayAccessor(emitter: Emitter, node: Node) {
-    if (emitter.source[node.start - 2] === '.') {
-        emitter.catchup(node.start - 1);
-        emitter.skip(1);
-    } else {
-        emitter.catchup(node.start);
-    }
-
-    visitNodes(emitter, node.children);
 }
 
 function emitCall(emitter: Emitter, node: Node): void {
