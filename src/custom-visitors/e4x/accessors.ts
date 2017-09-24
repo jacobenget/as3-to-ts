@@ -14,7 +14,7 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
         }
 
         let root = node.children[0];
-        let tail = node.children[1];
+        let tail = node.children[1];    // will be undefined if node.kind === NodeKind.E4X_STAR
         
         // turn:
         //    root.tail     // (includes tail === '*')

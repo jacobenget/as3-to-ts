@@ -7,12 +7,13 @@ import * as assert from 'assert';
 import { isAnAccessorOnAnXmlOrXmlListValue } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
+    assert(node.children.length === 1);
     const deleteTarget = node.children[0];
 
     if (isAnAccessorOnAnXmlOrXmlListValue(emitter, deleteTarget)) {
 
         let root = deleteTarget.children[0];
-        let tail = deleteTarget.children[1];
+        let tail = deleteTarget.children[1];    // will be undefined if deleteTarget.kind === NodeKind.E4X_STAR
 
         // turn:
         //    delete root.tail     // (includes tail === '*')

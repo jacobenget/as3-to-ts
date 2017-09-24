@@ -18,7 +18,7 @@ export default function(emitter: Emitter, node: Node) {
         assert(op.text === Operators.EQUAL);    // we have no logic yet to handle expressions like '+=' when the rhs is XML/XMLList, so assert if something like this is encountered
 
         let root = lhs.children[0];
-        let tail = lhs.children[1];
+        let tail = lhs.children[1];    // will be undefined if lhs.kind === NodeKind.E4X_STAR
         
         // turn:
         //    root.tail = rhs     // (includes tail === '*')
