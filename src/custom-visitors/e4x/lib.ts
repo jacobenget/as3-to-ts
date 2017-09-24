@@ -77,6 +77,8 @@ let returnTypeFromXmlListMethod: { [key: string]: string; } = {
     'valueOf': 'XMLList',
 };
 
+// Returns the TypeScript type of an expression, or 'null' if the type can't be determined
+// (failure to determine the type may be due to many things, one being that we haven't yet implemented logic to determine the type of that specific Node kind yet) 
 export function getExpressionType(emitter: Emitter, node: Node): string {
     if (node.kind === NodeKind.IDENTIFIER) {
         if (isAnAccessorOnAnXmlOrXmlListValue(emitter, node)) {
@@ -103,7 +105,11 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
     } else if (node.kind === NodeKind.ARRAY_ACCESSOR) {
         assert(node.children.length > 0);
         if (producesXmlOrXmlListValue(emitter, node.children[0])) {
-            return 'XMLList';
+            if (getExpressionType(emitter, node.lastChild) === 'number') {
+               return 'XML';
+            } else {
+                return 'XMLList';
+            }
         }
     } else if (node.kind === NodeKind.CALL) {
         if (node.children[0].kind === NodeKind.DOT) {
@@ -112,6 +118,18 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
             } else if (producesXmlListValue(emitter, node.children[0].children[0]) && returnTypeFromXmlListMethod.hasOwnProperty(node.children[0].children[1].text)) {
                 return returnTypeFromXmlListMethod[node.children[0].children[1].text];
             }
+        }
+    } else if (node.kind === NodeKind.LITERAL) {
+        // LITERAL is used as the node type for non-root parts of variable paths, but this function should not be called on these nodes
+        assert(node.parent.children[0] === node || node.parent.kind !== NodeKind.DOT && node.parent.kind !== NodeKind.E4X_ATTR);
+        assert(node.text != null);
+        // then, only 3 types of literals remain to check, and the first two are detectable by the first character
+        if (node.text[0] === '/') {
+            return 'RegExp';
+        } else if (node.text[0] === '"' || node.text[0] === "'") {
+            return 'string';
+        } else {
+            return 'number';
         }
     }
     

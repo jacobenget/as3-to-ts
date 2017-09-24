@@ -3,7 +3,7 @@ import NodeKind from '../../syntax/nodeKind';
 import Emitter, { visitNode } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlOrXmlListValue } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue, getExpressionType } from './lib';
 
 export default function emitAccessor(emitter: Emitter, node: Node) {
     if (isAnAccessorOnAnXmlOrXmlListValue(emitter, node)) {
@@ -19,11 +19,13 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
         // turn:
         //    root.tail     // (includes tail === '*')
         //    root.@tail     // (includes tail === '*')
+        //    root[<provably a number>]
         //    root[tail]
         //    root.@[tail]
         // into:
         //    root.$get('tail')
         //    root.$getAttribute('tail')
+        //    root.atIndex(<provably a number>)
         //    root.$get(tail)
         //    root.$getAttribute(tail)
         // respectively
@@ -38,7 +40,7 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
 
         // General approach:
         //  1. emit root
-        //  2. emit .$get( or .$getAttribute(
+        //  2. emit .$get( or .$getAttribute( or .atIndex(
         //  3. emit tail
         //  4. emit ')'
         //  5. skip to end of node, to avoid any trailing ']'
@@ -49,7 +51,11 @@ export default function emitAccessor(emitter: Emitter, node: Node) {
 
         //  2. emit .$get( or .$getAttribute(
         if (node.kind === NodeKind.DOT || node.kind === NodeKind.ARRAY_ACCESSOR || node.kind === NodeKind.E4X_STAR) {
-            emitter.insert('.$get(');
+            if (node.kind === NodeKind.ARRAY_ACCESSOR && getExpressionType(emitter, tail) === 'number') {
+                emitter.insert('.atIndex(');
+            } else {
+                emitter.insert('.$get(');
+            }
         } else if (node.kind === NodeKind.E4X_ATTR || node.kind === NodeKind.E4X_ATTR_ARRAY_ACCESS) {
             emitter.insert('.$getAttribute(');
         } else {
