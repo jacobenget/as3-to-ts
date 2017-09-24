@@ -131,6 +131,15 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
         } else {
             return 'number';
         }
+    } else if (node.kind === NodeKind.RELATION) {
+        let [lhs, op, rhs] = node.children;
+        if (op.kind === NodeKind.AS && rhs.kind === NodeKind.IDENTIFIER) {
+            assert(rhs.text != null);
+            return emitter.getTypeRemap(rhs.text) || rhs.text;
+        }
+    } else if (node.kind === NodeKind.ENCAPSULATED) {
+        assert(node.children.length === 1);
+        return getExpressionType(emitter, node.children[0]);
     }
     
     return null;
