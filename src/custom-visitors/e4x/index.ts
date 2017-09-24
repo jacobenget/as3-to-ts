@@ -92,10 +92,13 @@ function visit(emitter: Emitter, node: Node): boolean {
                 let containingFunctionNode = node.getParentChain().filter(ancestor => ancestor.kind === NodeKind.FUNCTION || ancestor.kind === NodeKind.GET)[0];
                 assert(containingFunctionNode != null);
                 
-                let returnType = containingFunctionNode.findChild(NodeKind.TYPE);
+                let returnTypeNode = containingFunctionNode.findChild(NodeKind.TYPE);
+                assert(returnTypeNode != null);
                 
-                if (returnType && (returnType.text !== getExpressionType(emitter, expressionNode))) {
-                    let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, returnType.text);
+                let returnType = emitter.getTypeRemap(returnTypeNode.text) || returnTypeNode.text;
+                
+                if (returnType !== getExpressionType(emitter, expressionNode)) {
+                    let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, returnTypeNode.text);
 
                     if (conversionFunctionName) {
                         emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
