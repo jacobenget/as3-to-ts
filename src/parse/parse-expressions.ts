@@ -585,11 +585,9 @@ function parseDot(parser:AS3Parser, node:Node):Node {
 function parseArrayAccessor(parser:AS3Parser, node:Node):Node {
     let result:Node = createNode(NodeKind.ARRAY_ACCESSOR, {start: node.start});
     result.children.push(node);
-    while (tokIs(parser, Operators.LEFT_SQUARE_BRACKET)) {
-        nextToken(parser, true);
-        result.children.push(parseExpression(parser));
-        result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
-    }
+    consume(parser, Operators.LEFT_SQUARE_BRACKET);
+    result.children.push(parseExpression(parser));
+    result.end = consume(parser, Operators.RIGHT_SQUARE_BRACKET).end;
     return result;
 }
 
