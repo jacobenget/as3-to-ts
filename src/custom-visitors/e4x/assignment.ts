@@ -4,7 +4,7 @@ import * as Operators from '../../syntax/operators'
 import Emitter, { visitNode, visitNodes } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue, producesXmlListValue, getConversionFunctionNameFromActionScriptType, emitExpressionWithConversion } from './lib';
+import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue, producesXmlListValue, getConversionFunctionNameFromTypeScriptType, emitExpressionWithConversion } from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
@@ -132,7 +132,7 @@ export default function(emitter: Emitter, node: Node) {
             const decl = emitter.findDefInScope(targetVarInScope);
             if (decl && decl.type) {
 
-                let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, decl.type);
+                let conversionFunctionName = getConversionFunctionNameFromTypeScriptType(emitter, decl.type);
 
                 if (conversionFunctionName) {
                     assert(node.children.length === 3);

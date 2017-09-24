@@ -971,7 +971,7 @@ function emitForIn(emitter: Emitter, node: Node): void {
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
         if (typeNode) {
-            emitter.declareInScope({name: nameNode.text, type: typeNode.text});
+            emitter.declareInScope({name: nameNode.text, type: emitter.getTypeRemap(typeNode.text) || typeNode.text});
         } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {
@@ -1010,7 +1010,7 @@ function emitForEach(emitter: Emitter, node: Node): void {
         let nameNode = nameTypeInitNode.findChild(NodeKind.NAME);
         let typeNode = nameTypeInitNode.findChild(NodeKind.TYPE);
         if (typeNode) {
-            emitter.declareInScope({name: nameNode.text, type: typeNode.text});
+            emitter.declareInScope({name: nameNode.text, type: emitter.getTypeRemap(typeNode.text) || typeNode.text});
         } else {
             let vecNode = nameTypeInitNode.findChild(NodeKind.VECTOR);
             if (vecNode) {

@@ -121,14 +121,18 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
 export function getConversionFunctionNameFromActionScriptType(emitter: Emitter, targetTypeInActionScript: string) {
     let remappedType = emitter.getTypeRemap(targetTypeInActionScript) || targetTypeInActionScript;
 
+    return getConversionFunctionNameFromTypeScriptType(emitter, remappedType);
+}
+
+export function getConversionFunctionNameFromTypeScriptType(emitter: Emitter, targetTypeInTypeScript: string) {
     let conversionFunctionNameFromRemappedType: { [key: string]: string; } = {
         ['string']: 'String',
         ['number']: 'Number',
         ['XML']: 'XML.convertToXml',
     };
 
-    if (conversionFunctionNameFromRemappedType.hasOwnProperty(remappedType)) {
-        return conversionFunctionNameFromRemappedType[remappedType];
+    if (conversionFunctionNameFromRemappedType.hasOwnProperty(targetTypeInTypeScript)) {
+        return conversionFunctionNameFromRemappedType[targetTypeInTypeScript];
     } else {
         return null;
     }
