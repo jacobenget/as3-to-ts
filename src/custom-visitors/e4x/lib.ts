@@ -118,12 +118,6 @@ export function getExpressionType(emitter: Emitter, node: Node): string {
     return null;
 }
 
-export function getConversionFunctionNameFromActionScriptType(emitter: Emitter, targetTypeInActionScript: string) {
-    let remappedType = emitter.getTypeRemap(targetTypeInActionScript) || targetTypeInActionScript;
-
-    return getConversionFunctionNameFromTypeScriptType(emitter, remappedType);
-}
-
 export function getConversionFunctionNameFromTypeScriptType(emitter: Emitter, targetTypeInTypeScript: string) {
     let conversionFunctionNameFromRemappedType: { [key: string]: string; } = {
         ['string']: 'String',

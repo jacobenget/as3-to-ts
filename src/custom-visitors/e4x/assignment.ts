@@ -4,7 +4,10 @@ import * as Operators from '../../syntax/operators'
 import Emitter, { visitNode, visitNodes } from '../../emit/emitter';
 import * as assert from 'assert';
 
-import { isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue, producesXmlListValue, getConversionFunctionNameFromTypeScriptType, emitExpressionWithConversion } from './lib';
+import {
+    isAnAccessorOnAnXmlOrXmlListValue, producesXmlOrXmlListValue, producesXmlListValue,
+    getConversionFunctionNameFromTypeScriptType, emitExpressionWithConversion, getExpressionType
+} from './lib';
 
 export default function(emitter: Emitter, node: Node) {
     assert(node.children.length === 3);    // not yet coding to handle multiple assignments in a row here
@@ -114,33 +117,24 @@ export default function(emitter: Emitter, node: Node) {
         emitter.insert(')');
         
         return true;
-    } else if (op.text === Operators.EQUAL && producesXmlListValue(emitter, rhs)) {
+    } else if (op.text === Operators.EQUAL && producesXmlOrXmlListValue(emitter, rhs)) {
 
         // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
         // based on what the type of the receiving variable when doing assignment.
         // So we'll to detect such situations and inject the needed conversions explicitly
 
-        let targetVarInScope: string = null;
+        let typeOfTargetVar = getExpressionType(emitter, lhs);
         
-        if (lhs.kind === NodeKind.IDENTIFIER) {
-            targetVarInScope = lhs.text;
-        } else if (lhs.kind === NodeKind.DOT && lhs.children[0].kind === NodeKind.IDENTIFIER && lhs.children[0].text === 'this') {
-            targetVarInScope = lhs.children[1].text;
-        }
+        if (typeOfTargetVar !== getExpressionType(emitter, rhs)) {
 
-        if (targetVarInScope) {
-            const decl = emitter.findDefInScope(targetVarInScope);
-            if (decl && decl.type) {
+            let conversionFunctionName = getConversionFunctionNameFromTypeScriptType(emitter, typeOfTargetVar);
 
-                let conversionFunctionName = getConversionFunctionNameFromTypeScriptType(emitter, decl.type);
+            if (conversionFunctionName) {
+                assert(node.children.length === 3);
 
-                if (conversionFunctionName) {
-                    assert(node.children.length === 3);
-                    
-                    visitNodes(emitter, [lhs, op]);
-                    emitExpressionWithConversion(emitter, rhs, conversionFunctionName);
-                    return true;
-                }
+                visitNodes(emitter, [lhs, op]);
+                emitExpressionWithConversion(emitter, rhs, conversionFunctionName);
+                return true;
             }
         }
     }

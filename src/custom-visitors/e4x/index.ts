@@ -2,7 +2,7 @@ import Node from '../../syntax/node';
 import NodeKind from '../../syntax/nodeKind';
 import Emitter from '../../emit/emitter';
 import {
-    producesXmlListValue, getConversionFunctionNameFromActionScriptType, emitExpressionWithConversion,
+    producesXmlListValue, getConversionFunctionNameFromTypeScriptType, emitExpressionWithConversion,
     producesXmlOrXmlListValue, getExpressionType
 } from './lib';
 
@@ -62,17 +62,26 @@ function visit(emitter: Emitter, node: Node): boolean {
 
             let expressionNode = node.children[0];
 
-            if (producesXmlListValue(emitter, expressionNode)) {
+            if (producesXmlOrXmlListValue(emitter, expressionNode)) {
 
                 // ActionScript appears to perform some auto-conversions from XMLList to 'String', 'Number', 'int', 'unit', and 'XML'
                 // based on what the type of the receiving variable when doing assignment.
                 // So we'll to detect such situations and inject the needed conversions explicitly
 
-                let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, node.parent.findChild(NodeKind.TYPE).text);
+                let varTypeNode = node.parent.findChild(NodeKind.TYPE);
+                assert(varTypeNode != null);
 
-                if (conversionFunctionName) {
-                    emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
-                    return true;
+                let varType = emitter.getTypeRemap(varTypeNode.text) || varTypeNode.text;
+
+                if (varType !== getExpressionType(emitter, expressionNode)) {
+
+                    let conversionFunctionName = getConversionFunctionNameFromTypeScriptType(emitter, varType);
+
+                    if (conversionFunctionName) {
+                        emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
+                        return true;
+                    
+                    }
                 }
             }
         }
@@ -98,7 +107,7 @@ function visit(emitter: Emitter, node: Node): boolean {
                 let returnType = emitter.getTypeRemap(returnTypeNode.text) || returnTypeNode.text;
                 
                 if (returnType !== getExpressionType(emitter, expressionNode)) {
-                    let conversionFunctionName = getConversionFunctionNameFromActionScriptType(emitter, returnTypeNode.text);
+                    let conversionFunctionName = getConversionFunctionNameFromTypeScriptType(emitter, returnType);
 
                     if (conversionFunctionName) {
                         emitExpressionWithConversion(emitter, expressionNode, conversionFunctionName);
