@@ -942,12 +942,10 @@ function emitFunction(emitter: Emitter, node: Node): void {
             emitter.skipTo(parameterList.start);
             visitNode(emitter, parameterList);
             visitNode(emitter, returnType);
-            emitter.catchup(functionBody.start);
-            // ensure there's some whitespace between the return type and the fat arrow
-            if (/\S/.test(emitter.output.slice(-1))) {
-                emitter.insert(' ');
-            }
-            emitter.insert('=> ');
+            emitter.catchup(returnType.end);
+            // avoid keeping whitespace between return type and function body because TypeScript complains if there's a newline directly preceding the '=>'
+            emitter.skipTo(functionBody.start);
+            emitter.insert(' => ');
             visitNode(emitter, functionBody);
         });
     } else {
