@@ -64,6 +64,7 @@ export const TYPE_REMAP: { [id: string]: string } = {
     uint: 'number',
     '*': 'any',
     Array: 'any[]',
+    Vector: 'Array',    // if the unparameterized type 'Vector' ever appears, replace it with 'Array'
     Dictionary: 'Object', // 80pro: was mapped to 'Map<any, any>' before
 
     // Inexistent errors
